@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نمایشگر کامل اطلاعات ویدیو یوتیوب</title>
+    <!-- Using Tailwind CSS for clean styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Using a nice font from Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap');
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background-color: #f1f5f9; /* slate-100 */
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+        .info-item {
+            background-color: #f8fafc; /* slate-50 */
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0; /* slate-200 */
+            display: flex;
+            flex-direction: column;
+        }
+        .info-item strong {
+            color: #475569; /* slate-600 */
+            margin-bottom: 0.25rem;
+        }
+        .info-item span, .info-item div {
+            color: #1e293b; /* slate-800 */
+            word-wrap: break-word;
+        }
+        .description-box {
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+            background-color: #f8fafc;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+        }
+        .thumbnail-gallery img {
+            transition: transform 0.2s ease-in-out;
+        }
+        .thumbnail-gallery a:hover img {
+            transform: scale(1.05);
+        }
+        .country-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            max-height: 100px; /* Limit height for very long lists */
+            overflow-y: auto;
+        }
+        .country-tag {
+            background-color: #e2e8f0;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-lg">
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-yellow-600">نمایشگر اطلاعات ویدیوی یوتیوب</h1>
+            <p class="text-slate-500 mt-2">آدرس کامل ویدیوی یوتیوب را برای دریافت تمام جزئیات آن وارد کنید.</p>
+        </div>
+
+        <!-- Input Section -->
+        <div class="flex flex-col sm:flex-row gap-2 mb-6">
+            <input type="text" id="youtubeUrl" class="flex-grow p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition" placeholder="مثال: https://www.youtube.com/watch?v=dQw4w9WgXcQ">
+            <button onclick="getVideoData()" class="bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-yellow-700 transition-colors duration-300 shadow">
+                دریافت اطلاعات
+            </button>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="mt-4">
+            <!-- Data will be injected here by JavaScript -->
+        </div>
+    </div>
+
+    <script>
+        // !! مهم: کلید API شما در اینجا قرار گرفته است.
+        const apiKey = "AIzaSyDMxKg47O9LFZ8QIigtpOmMzfd8qLGopx4"; // <-- کلید API خود را اینجا قرار دهید
+
+        // A comprehensive list of ISO 3166-1 alpha-2 country codes
+        const ALL_COUNTRY_CODES = ['AF', 'AX', 'AL', 'DZ', 'AS', 'AD', 'AO', 'AI', 'AQ', 'AG', 'AR', 'AM', 'AW', 'AU', 'AT', 'AZ', 'BS', 'BH', 'BD', 'BB', 'BY', 'BE', 'BZ', 'BJ', 'BM', 'BT', 'BO', 'BQ', 'BA', 'BW', 'BV', 'BR', 'IO', 'BN', 'BG', 'BF', 'BI', 'CV', 'KH', 'CM', 'CA', 'KY', 'CF', 'TD', 'CL', 'CN', 'CX', 'CC', 'CO', 'KM', 'CD', 'CG', 'CK', 'CR', 'CI', 'HR', 'CU', 'CW', 'CY', 'CZ', 'DK', 'DJ', 'DM', 'DO', 'EC', 'EG', 'SV', 'GQ', 'ER', 'EE', 'SZ', 'ET', 'FK', 'FO', 'FJ', 'FI', 'FR', 'GF', 'PF', 'TF', 'GA', 'GM', 'GE', 'DE', 'GH', 'GI', 'GR', 'GL', 'GD', 'GP', 'GU', 'GT', 'GG', 'GN', 'GW', 'GY', 'HT', 'HM', 'VA', 'HN', 'HK', 'HU', 'IS', 'IN', 'ID', 'IR', 'IQ', 'IE', 'IM', 'IL', 'IT', 'JM', 'JP', 'JE', 'JO', 'KZ', 'KE', 'KI', 'KP', 'KR', 'KW', 'KG', 'LA', 'LV', 'LB', 'LS', 'LR', 'LY', 'LI', 'LT', 'LU', 'MO', 'MG', 'MW', 'MY', 'MV', 'ML', 'MT', 'MH', 'MQ', 'MR', 'MU', 'YT', 'MX', 'FM', 'MD', 'MC', 'MN', 'ME', 'MS', 'MA', 'MZ', 'MM', 'NA', 'NR', 'NP', 'NL', 'NC', 'NZ', 'NI', 'NE', 'NG', 'NU', 'NF', 'MK', 'MP', 'NO', 'OM', 'PK', 'PW', 'PS', 'PA', 'PG', 'PY', 'PE', 'PH', 'PN', 'PL', 'PT', 'PR', 'QA', 'RE', 'RO', 'RU', 'RW', 'BL', 'SH', 'KN', 'LC', 'MF', 'PM', 'VC', 'WS', 'SM', 'ST', 'SA', 'SN', 'RS', 'SC', 'SL', 'SG', 'SX', 'SK', 'SI', 'SB', 'SO', 'ZA', 'GS', 'SS', 'ES', 'LK', 'SD', 'SR', 'SJ', 'SE', 'CH', 'SY', 'TW', 'TJ', 'TZ', 'TH', 'TL', 'TG', 'TK', 'TO', 'TT', 'TN', 'TR', 'TM', 'TC', 'TV', 'UG', 'UA', 'AE', 'GB', 'UM', 'US', 'UY', 'UZ', 'VU', 'VE', 'VN', 'VG', 'VI', 'WF', 'EH', 'YE', 'ZM', 'ZW'];
+
+        function extractVideoID(url) {
+            const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+            const match = url.match(regex);
+            return match ? match[1] : null;
+        }
+
+        function parseDuration(duration) {
+            const regex = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/;
+            const parts = duration.match(regex);
+            const hours = parseInt(parts[1] || 0);
+            const minutes = parseInt(parts[2] || 0);
+            const seconds = parseInt(parts[3] || 0);
+            let timeString = '';
+            if (hours > 0) {
+                timeString += `${String(hours).padStart(2, '0')}:`;
+            }
+            timeString += `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            return timeString;
+        }
+
+        function formatNumber(num) {
+            return Number(num).toLocaleString('fa-IR');
+        }
+
+        function getCountryDisplay(code, regionNames) {
+            try {
+                const flag = String.fromCodePoint(...[...code.toUpperCase()].map(char => 0x1F1E6 + char.charCodeAt(0) - 'A'.charCodeAt(0)));
+                const name = regionNames.of(code) || code;
+                return `${flag} ${name}`;
+            } catch (e) {
+                return code; // Fallback for invalid codes
+            }
+        }
+
+        async function getVideoData() {
+            const url = document.getElementById('youtubeUrl').value;
+            const videoId = extractVideoID(url);
+            const resultsDiv = document.getElementById('results');
+
+            if (apiKey === "YOUR_API_KEY") {
+                 resultsDiv.innerHTML = `<div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg" role="alert"><strong>خطا:</strong> <span class="block sm:inline">لطفاً کلید API یوتیوب خود را در کد قرار دهید.</span></div>`;
+                 return;
+            }
+
+            resultsDiv.innerHTML = `<div class="text-center p-4"><p class="text-slate-500">در حال دریافت اطلاعات...</p></div>`;
+
+            if (!videoId) {
+                resultsDiv.innerHTML = `<div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg" role="alert"><strong>خطا:</strong> <span class="block sm:inline">آدرس URL نامعتبر است.</span></div>`;
+                return;
+            }
+
+            const apiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&key=${apiKey}&part=snippet,contentDetails,statistics,status`;
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    const errorMessage = errorData.error.message || `خطای API: ${response.status}`;
+                    throw new Error(errorMessage);
+                }
+                const data = await response.json();
+
+                if (data.items.length > 0) {
+                    const video = data.items[0];
+                    const { snippet, statistics: stats, contentDetails: details, status } = video;
+
+                    const publishDate = new Date(snippet.publishedAt).toLocaleDateString('fa-IR', {
+                        year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    });
+
+                    // --- Generate Thumbnails Gallery HTML ---
+                    const thumbnails = snippet.thumbnails;
+                    let thumbnailsHTML = '';
+                    const thumbnailOrder = ['maxres', 'standard', 'high', 'medium', 'default'];
+                    const thumbnailTitles = { maxres: 'حداکثر رزولوشن', standard: 'استاندارد', high: 'بالا', medium: 'متوسط', default: 'پیش‌فرض' };
+                    thumbnailOrder.forEach(key => {
+                        if (thumbnails[key]) {
+                            thumbnailsHTML += `
+                                <div class="text-center">
+                                    <a href="${thumbnails[key].url}" target="_blank" rel="noopener noreferrer" title="مشاهده تصویر در اندازه کامل">
+                                        <img src="${thumbnails[key].url}" alt="${thumbnailTitles[key]} thumbnail" class="w-full rounded-lg shadow-md mb-2 border border-slate-200">
+                                    </a>
+                                    <p class="text-sm font-semibold text-slate-600">${thumbnailTitles[key]}</p>
+                                    <p class="text-xs text-slate-500">${thumbnails[key].width}x${thumbnails[key].height}</p>
+                                </div>`;
+                        }
+                    });
+
+                    // --- Generate Region Restriction HTML ---
+                    const regionNames = new Intl.DisplayNames(['fa'], { type: 'region' });
+                    let regionRestrictionHTML = `<div class="info-item"><strong>محدودیت جغرافیایی:</strong> <span>✔️ در سراسر جهان در دسترس است</span></div>`;
+                    const restriction = details.regionRestriction;
+                    if (restriction) {
+                        let blockedList = [];
+                        if (restriction.blocked && restriction.blocked.length > 0) {
+                            blockedList = restriction.blocked;
+                        } else if (restriction.allowed && restriction.allowed.length > 0) {
+                            const allowedSet = new Set(restriction.allowed);
+                            blockedList = ALL_COUNTRY_CODES.filter(code => !allowedSet.has(code));
+                        }
+
+                        if (blockedList.length > 0) {
+                             const blockedCountriesHTML = blockedList.map(code => `<span class="country-tag">${getCountryDisplay(code, regionNames)}</span>`).join('');
+                             regionRestrictionHTML = `<div class="info-item"><strong>❌ مسدود شده در کشورهای زیر:</strong><div class="country-list mt-2">${blockedCountriesHTML}</div></div>`;
+                        }
+                    }
+
+                    resultsDiv.innerHTML = `
+                        <div class="space-y-6">
+                            <!-- Title and Thumbnail -->
+                            <div>
+                                <h2 class="text-2xl font-bold mb-4">${snippet.title}</h2>
+                                
+                                <!-- --- Thumbnail Section --- -->
+                                <div class="w-full rounded-xl overflow-hidden shadow-lg cursor-pointer">
+                                     <a href="https://www.youtube.com/watch?v=${videoId}" target="_blank" rel="noopener noreferrer" title="تماشای ویدیو در یوتیوب">
+                                        <img src="${(thumbnails.maxres || thumbnails.high || thumbnails.standard).url}" alt="Video Thumbnail" class="w-full h-auto">
+                                     </a>
+                                </div>
+                            </div>
+
+                            <!-- Main Info Grid -->
+                            <h3 class="text-xl font-bold border-b-2 border-yellow-200 pb-2">اطلاعات اصلی</h3>
+                            <div class="info-grid">
+                                <div class="info-item"><strong>شناسه ویدیو:</strong> <span>${videoId}</span></div>
+                                <div class="info-item"><strong>نام کانال:</strong> <span>${snippet.channelTitle}</span></div>
+                                <div class="info-item"><strong>شناسه کانال:</strong> <span>${snippet.channelId}</span></div>
+                                <div class="info-item"><strong>تاریخ انتشار:</strong> <span>${publishDate}</span></div>
+                                <div class="info-item"><strong>مدت زمان:</strong> <span>${parseDuration(details.duration)}</span></div>
+                                <div class="info-item"><strong>کیفیت:</strong> <span>${details.definition.toUpperCase()}</span></div>
+                            </div>
+
+                            <!-- Statistics -->
+                            <h3 class="text-xl font-bold border-b-2 border-yellow-200 pb-2">آمار</h3>
+                            <div class="info-grid">
+                                <div class="info-item"><strong>تعداد بازدید:</strong> <span>${stats.viewCount ? formatNumber(stats.viewCount) : 'نامشخص'}</span></div>
+                                <div class="info-item"><strong>تعداد لایک:</strong> <span>${stats.likeCount ? formatNumber(stats.likeCount) : 'نامشخص'}</span></div>
+                                <div class="info-item"><strong>تعداد کامنت:</strong> <span>${stats.commentCount ? formatNumber(stats.commentCount) : 'غیرفعال یا نامشخص'}</span></div>
+                            </div>
+                            
+                            <!-- Status -->
+                            <h3 class="text-xl font-bold border-b-2 border-yellow-200 pb-2">وضعیت</h3>
+                            <div class="info-grid">
+                                <div class="info-item"><strong>وضعیت آپلود:</strong> <span>${status.uploadStatus}</span></div>
+                                <div class="info-item"><strong>وضعیت حریم خصوصی:</strong> <span>${status.privacyStatus}</span></div>
+                                <div class="info-item"><strong>لایسنس:</strong> <span>${status.license === 'youtube' ? 'Standard YouTube License' : 'Creative Commons'}</span></div>
+                                <div class="info-item"><strong>قابلیت جاسازی (Embed):</strong> <span>${status.embeddable ? '✔️ بله' : '❌ خیر'}</span></div>
+                                <div class="info-item"><strong>مخصوص کودکان:</strong> <span>${status.madeForKids ? '✔️ بله' : '❌ خیر'}</span></div>
+                                ${regionRestrictionHTML}
+                            </div>
+
+                            <!-- Description -->
+                            <h3 class="text-xl font-bold border-b-2 border-yellow-200 pb-2">توضیحات</h3>
+                            <div class="description-box">
+                                <p>${snippet.description || 'توضیحاتی وجود ندارد.'}</p>
+                            </div>
+
+                            <!-- Tags -->
+                            <h3 class="text-xl font-bold border-b-2 border-yellow-200 pb-2">برچسب‌ها (Tags)</h3>
+                            <div class="flex flex-wrap gap-2 p-2">
+                                ${snippet.tags ? snippet.tags.map(tag => `<span class="bg-slate-200 text-slate-700 text-sm font-medium px-3 py-1 rounded-full">${tag}</span>`).join('') : '<span class="text-slate-500">هیچ برچسبی یافت نشد.</span>'}
+                            </div>
+                            
+                            <!-- Thumbnails Section -->
+                            <h3 class="text-xl font-bold border-b-2 border-yellow-200 pb-2">گالری تامنیل‌ها</h3>
+                            <div class="thumbnail-gallery grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                ${thumbnailsHTML}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = `<div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg" role="alert"><strong>یافت نشد:</strong> <span class="block sm:inline">ویدیویی با این شناسه یافت نشد.</span></div>`;
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                resultsDiv.innerHTML = `<div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg" role="alert"><strong>خطای ارتباطی:</strong> <span class="block sm:inline">(${error.message})</span></div>`;
+            }
+        }
+    </script>
+
+</body>
+</html>
