@@ -54,7 +54,7 @@
       -moz-osx-font-smoothing: grayscale;
       transition: background 240ms ease, color 240ms ease;
       /*overflow: hidden; /* Disable main scroll */
-      zoom: .925; /* Apply 80% zoom */
+      /*zoom: .925; /* Apply 80% zoom */
     }
     @media (min-width: 1024px) {
         body {
@@ -403,7 +403,6 @@
                         <div class="p-4 rounded-lg border" style="background-color: var(--card); border-color: var(--border-color);">
                             <p class="font-bold text-lg">${hw.date}</p>
                             <p class="mt-1 whitespace-pre-wrap">${hw.homework}</p>
-                            <p class="text-xs mt-2 text-right" style="color:var(--muted)">ثبت توسط: ${hw.creator}</p>
                         </div>
                     `;
                 });
@@ -667,3 +666,4 @@
   </script>
 </body>
 </html>
+
