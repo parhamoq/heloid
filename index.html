@@ -467,6 +467,21 @@
     loginModal.addEventListener('click', (e) => { if (e.target === loginModal) hideModal(loginModal); });
     closeHomeworkModal.addEventListener('click', () => { hideModal(homeworkModal); });
     homeworkModal.addEventListener('click', (e) => { if (e.target === homeworkModal) hideModal(homeworkModal); });
+    // NEW: Function to save invalid access attempts
+    async function logNoAccess(failedCode) {
+        try {
+            const { error } = await db
+                .from('noaccess') // table name in Supabase
+                .insert([{ attempted_code: failedCode }]); // field name in your table
+            if (error) {
+                console.error("Error logging failed access:", error);
+            } else {
+                console.log("Failed access attempt logged successfully.");
+            }
+        } catch (e) {
+            console.error("Exception while logging failed access:", e);
+        }
+    }
 
     submitLogin.addEventListener('click', async () => {
         const code = nameInput.value.trim();
@@ -488,6 +503,7 @@
                 loginMessage.textContent = 'کد وارد شده اشتباه است.';
                 loginMessage.className = 'text-sm mb-3 h-6 text-red-400';
                 nameInput.value = '';
+                await logNoAccess(code);
             } else {
                 loginMessage.textContent = 'ورود موفقیت آمیز بود!';
                 loginMessage.className = 'text-sm mb-3 h-6 text-green-400';
@@ -504,6 +520,7 @@
             console.error("Error verifying representative code: ", error);
             loginMessage.textContent = 'خطا در ارتباط با دیتابیس.';
             loginMessage.className = 'text-sm mb-3 h-6 text-red-400';
+            await logNoAccess(code); // ✅ این خط هم باید اینجا باشد
         } finally {
             submitLogin.disabled = false;
         }
@@ -666,5 +683,3 @@
   </script>
 </body>
 </html>
-
-
