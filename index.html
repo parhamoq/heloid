@@ -23,6 +23,8 @@
     }
     body[data-theme='dark'] {
       --bg-gradient: linear-gradient(180deg, #041223 0%, #071a38 55%, #05203a 100%);
+      background-attachment: fixed;
+      background-repeat: no-repeat;
       --surface: rgba(10, 16, 25, 0.7);
       --muted: #9aa4b2;
       --text: #e6eef8;
@@ -51,6 +53,18 @@
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       transition: background 240ms ease, color 240ms ease;
+      /*overflow: hidden; /* Disable main scroll */
+      zoom: .925; /* Apply 80% zoom */
+    }
+    @media (min-width: 1024px) {
+        body {
+            overflow: hidden; /* اسکرول غیرفعال برای لپ‌تاپ و بالاتر */
+        }
+    }
+    @media (max-width: 1023px) {
+        body {
+            overflow: auto; /* اسکرول فعال برای موبایل و تبلت */
+        }
     }
     .bg-ambient { position: fixed; inset: 0; pointer-events: none; z-index: 0; mix-blend-mode: overlay; }
     .site-header {
@@ -145,7 +159,7 @@
     }
     /* NEW: Styles for scrollable announcements */
     #announcements-list {
-      max-height: 200px;
+      max-height: 180px;
       overflow-y: auto;
       padding-left: 1rem; /* Space for scrollbar in RTL */
     }
@@ -160,7 +174,7 @@
       background: var(--muted);
       border-radius: 10px;
     }
-    @media (min-width: 768px) { .class-block { min-height: 12rem; } }
+    @media (min-width: 750px) { .class-block { min-height: 10rem; } }
   </style>
 </head>
 <body data-theme="dark">
@@ -203,7 +217,7 @@
   </div>
 
   <!-- NEW: Credit Text -->
-  <!--<div class="fixed bottom-4 left-4 text-xs z-20" style="color: var(--muted);">ساخته شده توسط من</div> -->
+  <!--<div class="fixed bottom-4 left-4 text-xs z-20" style="color: var(--muted);">ساخته شده توسط من</div>-->
 
   <!-- Modals -->
   <div id="login-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="login-title">
@@ -235,10 +249,10 @@
               </div>
               <div>
                   <label for="homework-date" class="block text-sm mb-1">تاریخ</label>
-                  <input id="homework-date" type="text" placeholder="مثلا: شنبه" class="w-full rounded-md p-3 border focus:ring-2 focus:ring-indigo-300" />
+                  <input id="homework-date" type="text" placeholder="مثلا: ۱۴۰۳/۰۶/۰۵" class="w-full rounded-md p-3 border focus:ring-2 focus:ring-indigo-300" />
               </div>
               <div>
-                  <label for="homework-details" class="block text-sm mb-1">تکلیف</label>
+                  <label for="homework-details" class="block text-sm mb-1">شرح تکلیف</label>
                   <textarea id="homework-details" rows="4" class="w-full rounded-md p-3 border focus:ring-2 focus:ring-indigo-300"></textarea>
               </div>
               <button id="add-homework-button" class="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-500 text-white rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed" disabled>
@@ -248,25 +262,25 @@
       </div>
   </div>
 
+  <!-- Import Supabase Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
   <script type="module">
-    // Import Firebase functions
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, onSnapshot, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    // ============================================
+    // SUPABASE CONFIGURATION
+    // ============================================
+    const SUPABASE_URL = 'https://pyvwnbpufpalbvvnuwch.supabase.co'; // TODO: Replace with your Supabase URL
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5dnduYnB1ZnBhbGJ2dm51d2NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzMTQ2NTcsImV4cCI6MjA3MTg5MDY1N30.82zlBtvsazt9lQLLBuNtouPKenZPTrBqXc1tEtECSDY'; // TODO: Replace with your Supabase Anon Key
 
-    // ============================================
-    // FIREBASE CONFIGURATION
-    // ============================================
-    const firebaseConfig = {
-        apiKey: "AIzaSyAWp88sIedcFcZSuCrPp74PUOi15sylJeU",
-        authDomain: "dore30-42383.firebaseapp.com",
-        projectId: "dore30-42383",
-        storageBucket: "dore30-42383.firebasestorage.app",
-        messagingSenderId: "997260913409",
-        appId: "1:997260913409:web:e3a4fc1a9e7e58d4a0c900",
-        measurementId: "G-H96998GS9E"
-    };
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    // Check if Supabase credentials are provided
+    if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+      console.error("خطا: اطلاعات اتصال به Supabase را در کد وارد کنید.");
+      // Optionally, disable functionality
+      // return; 
+    }
+
+    const { createClient } = supabase;
+    const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // ============================================
     // DOM Elements
@@ -371,19 +385,25 @@
         Object.assign(clone.style, { top: '0', left: '0', width: '100vw', height: '100vh', borderRadius: '0' });
         contentDiv.style.opacity = '1';
         try {
-            const q = query(collection(db, "homeworks"), where("classname", "==", name), orderBy("timestamp", "desc"));
-            const querySnapshot = await getDocs(q);
+            const { data, error } = await db
+                .from('homeworks')
+                .select('*')
+                .eq('classname', name)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
             let homeworkHTML = `<h2 class="text-3xl font-bold mb-6 text-center">تکالیف کلاس ${name}</h2>`;
-            if (querySnapshot.empty) {
+            if (!data || data.length === 0) {
                 homeworkHTML += `<p class="text-center" style="color:var(--muted)">هنوز تکلیفی برای این کلاس ثبت نشده است.</p>`;
             } else {
                 homeworkHTML += '<div class="space-y-4">';
-                querySnapshot.forEach(doc => {
-                    const hw = doc.data();
+                data.forEach(hw => {
                     homeworkHTML += `
                         <div class="p-4 rounded-lg border" style="background-color: var(--card); border-color: var(--border-color);">
                             <p class="font-bold text-lg">${hw.date}</p>
                             <p class="mt-1 whitespace-pre-wrap">${hw.homework}</p>
+                            <p class="text-xs mt-2 text-right" style="color:var(--muted)">ثبت توسط: ${hw.creator}</p>
                         </div>
                     `;
                 });
@@ -458,15 +478,14 @@
         loginMessage.className = 'text-sm mb-3 h-6 text-yellow-400';
 
         try {
-            // How to add codes:
-            // 1. Go to your Firestore Database.
-            // 2. Create a new collection named "representatives".
-            // 3. Add a new document for each valid user.
-            // 4. Inside each document, add one field named "code" and set its value to the user's code (e.g., "C30-901").
-            const q = query(collection(db, "representatives"), where("code", "==", code));
-            const querySnapshot = await getDocs(q);
+            const { data, error } = await db
+                .from('representatives')
+                .select('code')
+                .eq('code', code);
 
-            if (querySnapshot.empty) {
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
                 loginMessage.textContent = 'کد وارد شده اشتباه است.';
                 loginMessage.className = 'text-sm mb-3 h-6 text-red-400';
                 nameInput.value = '';
@@ -514,16 +533,20 @@
             classname: classSelect.value,
             date: homeworkDate.value.trim(),
             homework: homeworkDetails.value.trim(),
-            creator: currentCreator,
-            timestamp: new Date()
+            creator: currentCreator
         };
 
         try {
-            await addDoc(collection(db, "homeworks"), homeworkData);
-            await addDoc(collection(db, "announcements"), {
+            const { error: homeworkError } = await db.from('homeworks').insert([homeworkData]);
+            if (homeworkError) throw homeworkError;
+            
+            // FIX: Reverted to sending the timestamp explicitly from the client
+            const { error: announcementError } = await db.from('announcements').insert([{
                 message: `تکلیف جدیدی برای کلاس ${homeworkData.classname} ثبت شد.`,
-                timestamp: new Date()
-            });
+                created_at: new Date().toISOString()
+            }]);
+            if (announcementError) throw announcementError;
+
             classSelect.value = '';
             homeworkDate.value = '';
             homeworkDetails.value = '';
@@ -541,29 +564,69 @@
     // ============================================
     // Real-time Announcements Listener
     // ============================================
-    function listenForAnnouncements() {
-        const q = query(collection(db, "announcements"), orderBy("timestamp", "desc"), limit(10));
+    async function fetchAndRenderAnnouncements() {
+        const { data, error } = await db
+            .from('announcements')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (error) {
+            console.error("Error fetching announcements:", error);
+            return;
+        }
         
-        onSnapshot(q, (querySnapshot) => {
-            if (querySnapshot.empty) {
-                announcementsList.innerHTML = `<p style="color:var(--muted)">هنوز اعلانی ثبت نشده است.</p>`;
-                return;
-            }
-            let announcementsHTML = '';
-            const formatter = new Intl.DateTimeFormat('fa-IR', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
-            querySnapshot.forEach((doc) => {
-                const announcement = doc.data();
-                const timeString = formatter.format(announcement.timestamp.toDate());
-                announcementsHTML += `
-                    <div class="p-3 rounded-md flex justify-between items-center" style="background-color: var(--card);">
-                        <span>${announcement.message}</span>
-                        <span class="text-xs" style="color:var(--muted);">${timeString}</span>
-                    </div>
-                `;
-            });
-            announcementsList.innerHTML = announcementsHTML;
+        if (!data || data.length === 0) {
+            announcementsList.innerHTML = `<p style="color:var(--muted)">هنوز اعلانی ثبت نشده است.</p>`;
+            return;
+        }
+
+        let announcementsHTML = '';
+        const formatter = new Intl.DateTimeFormat('fa-IR', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
+        data.forEach(announcement => {
+            const timeString = formatter.format(new Date(announcement.created_at));
+            announcementsHTML += `
+                <div class="p-3 rounded-md flex justify-between items-center" style="background-color: var(--card);">
+                    <span>${announcement.message}</span>
+                    <span class="text-xs" style="color:var(--muted);">${timeString}</span>
+                </div>
+            `;
         });
+        announcementsList.innerHTML = announcementsHTML;
     }
+
+    function listenForAnnouncements() {
+        db.channel('public:announcements')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, payload => {
+                console.log('New announcement received!', payload);
+                fetchAndRenderAnnouncements();
+            })
+            .subscribe();
+    }
+    
+    // NEW: Debug function to fetch all data
+    async function getAllData() {
+        console.log("--- Fetching All Data ---");
+        try {
+            const { data: homeworks, error: hwError } = await db.from('homeworks').select('*');
+            if (hwError) throw hwError;
+            console.log("Homeworks:", homeworks);
+
+            const { data: announcements, error: anError } = await db.from('announcements').select('*');
+            if (anError) throw anError;
+            console.log("Announcements:", announcements);
+
+            const { data: representatives, error: repError } = await db.from('representatives').select('*');
+            if (repError) throw repError;
+            console.log("Representatives:", representatives);
+
+        } catch (error) {
+            console.error("Error fetching all data:", error);
+        }
+        console.log("-------------------------");
+    }
+    // Make it accessible from the console
+    window.getAllData = getAllData;
 
     // ============================================
     // Initialization
@@ -571,12 +634,13 @@
     function init() {
         createBlocks();
         createParticles();
-        listenForAnnouncements(); 
+        fetchAndRenderAnnouncements(); // Initial fetch
+        listenForAnnouncements(); // Listen for real-time updates
+        
         const initialTheme = localStorage.getItem('theme') || 'dark';
         applyTheme(initialTheme);
         themeToggle.addEventListener('click', () => applyTheme(document.body.dataset.theme === 'dark' ? 'light' : 'dark'));
 
-        // Check for persistent login
         const savedCreator = sessionStorage.getItem('currentCreator');
         if (savedCreator) {
             updateUIForLogin(savedCreator);
@@ -603,5 +667,3 @@
   </script>
 </body>
 </html>
-
-
