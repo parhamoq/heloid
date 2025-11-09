@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>سوئیچ وضعیت بلادرنگ سوپابیس</title>
+    <title>سوئیچ </title>
     <!-- بارگذاری Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -31,7 +31,29 @@
 </head>
 <body class="bg-gray-50 flex items-center justify-center min-h-screen p-4 font-sans">
 
-    <div id="app" class="w-full max-w-lg p-6 md:p-10 bg-white rounded-xl shadow-2xl text-center flex flex-col items-center">
+    <!-- Login Modal/Screen (Initially Visible) -->
+    <div id="loginScreen" class="absolute inset-0 bg-gray-900 bg-opacity-95 flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-8 rounded-xl shadow-2xl text-center w-full max-w-sm transform transition-all duration-300 scale-100">
+            <h2 class="text-2xl font-bold text-indigo-600 mb-4">🔒 ورود امن</h2>
+            <p id="pinLoadingStatus" class="text-sm text-gray-500 mb-6">در حال بارگذاری کلید امنیتی از دیتابیس...</p>
+            
+            <input 
+                type="password" 
+                id="pinInput" 
+                maxlength="4" 
+                placeholder="کد 4 رقمی" 
+                disabled
+                class="w-full text-center border-2 border-gray-300 rounded-lg p-3 text-2xl focus:border-indigo-500 transition mb-4 tracking-widest outline-none opacity-50" 
+            />
+            <button id="pinSubmitButton" disabled class="w-full bg-indigo-400 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md">
+                ورود
+            </button>
+            <p id="pinError" class="text-red-500 text-sm mt-3 hidden">کد امنیتی اشتباه است. لطفاً دوباره امتحان کنید.</p>
+        </div>
+    </div>
+    
+    <!-- Main App Content (Initially Hidden) -->
+    <div id="app" class="w-full max-w-lg p-6 md:p-10 bg-white rounded-xl shadow-2xl text-center flex flex-col items-center hidden">
         <!-- عنوان اصلی -->
         <h1 class="text-3xl font-extrabold text-gray-800 mb-8">وضعیت سوئیچ هوشمند (Supabase)</h1>
 
@@ -51,22 +73,35 @@
 
     <!-- اسکریپت‌های Supabase و منطق برنامه -->
     <script type="module">
-        // وارد کردن ماژول Supabase
+        // وارد کردن ماژول Supabase و تنظیمات از فایل جداگانه
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+        import { 
+            supabaseUrl, 
+            supabaseAnonKey, 
+            EXAMPLE_URL, 
+            EXAMPLE_KEY 
+        } from './config.js'; // کلیدها از فایل config.js بارگذاری می‌شوند
 
-        // تنظیمات Supabase از متغیرهای سراسری محیط (شما باید آنها را در محیط خود تعریف کنید)
-        const supabaseUrl = typeof __supabase_url !== 'undefined' ? __supabase_url : 'https://jljudmnngrepmhgzwhhn.supabase.co'; // URL پروژه
-        const supabaseAnonKey = typeof __supabase_anon_key !== 'undefined' ? __supabase_anon_key : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsanVkbW5uZ3JlcG1oZ3p3aGhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2OTg3MDAsImV4cCI6MjA3ODI3NDcwMH0.ajjY57gb92PwiOpzoRs6HFRfeBn9G-wSVbt9-lmNCU0'; // کلید عمومی
-        
-        // نام جدول در سوپابیس که وضعیت در آن ذخیره می‌شود
+        // --- تنظیمات امنیتی و دیتابیس ---
+        // جدول اصلی برای نگهداری وضعیت سوئیچ
         const TABLE_NAME = 'toggle_status';
-        // شناسه ردیف در جدول که همیشه برای ذخیره وضعیت استفاده می‌شود (فرض می‌کنیم فقط یک ردیف است)
         const STATUS_ROW_ID = 1; 
 
+        // جدول جدید برای نگهداری کلید امنیتی (PIN)
+        const SECRETS_TABLE_NAME = 'app_config';
+        const SECRETS_ROW_ID = 1;
+
         let supabase;
-        let userId = crypto.randomUUID(); // از یک شناسه تصادفی برای ردیابی تغییردهنده استفاده می‌کنیم
+        let userId = crypto.randomUUID(); 
+        let secretPin = null; // متغیر برای نگهداری کلید امنیتی خوانده شده از دیتابیس
 
         // عناصر DOM
+        const app = document.getElementById('app');
+        const loginScreen = document.getElementById('loginScreen');
+        const pinInput = document.getElementById('pinInput');
+        const pinSubmitButton = document.getElementById('pinSubmitButton');
+        const pinError = document.getElementById('pinError');
+        const pinLoadingStatus = document.getElementById('pinLoadingStatus');
         const statusDisplay = document.getElementById('statusDisplay');
         const toggleButton = document.getElementById('toggleButton');
         const userIdDisplay = document.getElementById('userIdDisplay');
@@ -94,30 +129,72 @@
             }
         };
 
-        // تابع برای مقداردهی اولیه برنامه
-        async function initializeApp() {
-            if (supabaseUrl === 'https://jljudmnngrepmhgzwhhn.supabase.co' && supabaseAnonKey === 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsanVkbW5uZ3JlcG1oZ3p3aGhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2OTg3MDAsImV4cCI6MjA3ODI3NDcwMH0.ajjY57gb92PwiOpzoRs6HFRfeBn9G-wSVbt9-lmNCU0') {
-                console.error("Supabase configuration is using placeholder values. Please set your actual URL and Key.");
-                statusDisplay.textContent = "هشدار: از مقادیر پیش‌فرض سوپابیس استفاده شده. اتصال ممکن است کار نکند.";
-                // اجازه می‌دهیم برنامه با placeholder ادامه یابد
-            }
-
+        // تابع برای خواندن کلید امنیتی از دیتابیس (جدول app_config)
+        async function fetchSecretPin() {
+            pinLoadingStatus.textContent = "در حال بارگذاری کلید امنیتی...";
             try {
-                // ساخت کلاینت سوپابیس
-                supabase = createClient(supabaseUrl, supabaseAnonKey);
+                const { data, error } = await supabase
+                    .from(SECRETS_TABLE_NAME)
+                    .select('pin_code')
+                    .eq('id', SECRETS_ROW_ID)
+                    .single();
+
+                if (error || !data || !data.pin_code) {
+                    console.error("Error fetching secret PIN. Check 'app_config' table and RLS policies.", error);
+                    pinLoadingStatus.textContent = "❌ خطا: کلید امنیتی از دیتابیس بارگذاری نشد. (لطفاً تنظیمات app_config را بررسی کنید)";
+                    pinSubmitButton.disabled = true;
+                    return false;
+                }
+
+                secretPin = data.pin_code;
+                pinLoadingStatus.textContent = "برای دسترسی به سوئیچ، لطفاً کد امنیتی را وارد کنید.";
                 
-                userIdDisplay.textContent = `شناسه کاربری (موقت): ${userId}`;
-
-                // 1. دریافت وضعیت اولیه
-                await fetchInitialStatus();
-
-                // 2. راه‌اندازی شنونده بلادرنگ
-                setupRealtimeListener();
+                // فعال‌سازی المان‌های ورود پس از بارگذاری کلید
+                pinInput.disabled = false;
+                pinInput.classList.remove('opacity-50');
+                pinSubmitButton.disabled = false;
+                pinSubmitButton.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md hover:shadow-lg';
+                
+                return true;
 
             } catch (error) {
-                console.error("Supabase Initialization Error:", error);
-                statusDisplay.textContent = "خطا در اتصال به سوپابیس.";
-                updateUI(null);
+                console.error("Critical error during PIN fetch:", error);
+                pinLoadingStatus.textContent = "❌ خطای بحرانی در اتصال سوپابیس. (به کنسول مراجعه کنید)";
+                pinSubmitButton.disabled = true;
+                return false;
+            }
+        }
+
+        // تابع اجرای سوپابیس پس از ورود موفق
+        async function initializeMainAppLogic() {
+            userIdDisplay.textContent = `شناسه کاربری (موقت): ${userId}`;
+
+            // 1. دریافت وضعیت اولیه (Existing logic)
+            await fetchInitialStatus();
+
+            // 2. راه‌اندازی شنونده بلادرنگ (Existing logic)
+            setupRealtimeListener();
+        }
+
+        // تابع بررسی کد امنیتی و شروع برنامه
+        function checkPIN() {
+            // اطمینان از اینکه کلید از قبل بارگذاری شده است
+            if (!secretPin) {
+                pinError.textContent = "کلید امنیتی هنوز بارگذاری نشده. لطفاً منتظر بمانید.";
+                pinError.classList.remove('hidden');
+                return;
+            }
+            
+            const enteredPin = pinInput.value;
+            if (enteredPin === secretPin) { 
+                pinError.classList.add('hidden');
+                loginScreen.classList.add('hidden');
+                app.classList.remove('hidden'); // Show the main app
+                initializeMainAppLogic(); // Start the main app logic
+            } else {
+                pinError.textContent = "کد امنیتی اشتباه است. لطفاً دوباره امتحان کنید.";
+                pinError.classList.remove('hidden');
+                pinInput.value = ''; // Clear input on failure
             }
         }
         
@@ -131,12 +208,11 @@
                 
             if (error && error.code === 'PGRST116') { // خطا: ردیفی با این ID پیدا نشد.
                 console.log("Status row not found. Inserting initial status (true).");
-                // تنها id و is_active را وارد می‌کنیم تا خطای ستون‌های اضافی رفع شود.
                 const initialData = { id: STATUS_ROW_ID, is_active: true }; 
                 const { error: insertError } = await supabase.from(TABLE_NAME).insert(initialData);
                 if (insertError) {
                     console.error("Error inserting initial status:", insertError);
-                    statusDisplay.textContent = "خطا در ایجاد وضعیت اولیه.";
+                    statusDisplay.textContent = "خطا در ایجاد وضعیت اولیه. (جدول را در سوپابیس بررسی کنید)";
                     updateUI(null);
                     return;
                 }
@@ -144,7 +220,7 @@
                 toggleButton.dataset.isActive = true;
             } else if (error) {
                 console.error("Error fetching initial status:", error);
-                statusDisplay.textContent = "خطا در دریافت وضعیت اولیه.";
+                statusDisplay.textContent = "خطا در دریافت وضعیت اولیه. (به کنسول رجوع کنید)";
                 updateUI(null);
             } else if (data) {
                 const isActive = data.is_active;
@@ -155,7 +231,6 @@
 
         // تابع برای راه‌اندازی شنونده بلادرنگ (Real-time)
         function setupRealtimeListener() {
-            // ساخت کانال Realtime و گوش دادن به تغییرات UPDATE در جدول و ردیف مورد نظر
             supabase.channel('status_channel')
                 .on('postgres_changes', { 
                     event: 'UPDATE', 
@@ -166,60 +241,84 @@
                     console.log('Realtime change received:', payload);
                     const isActive = payload.new.is_active;
                     updateUI(isActive);
-                    // ذخیره وضعیت در دکمه برای دسترسی آسان در تابع Toggle
                     toggleButton.dataset.isActive = isActive;
                 })
                 .subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
                         console.log('Successfully subscribed to status changes.');
                     } else if (status === 'CHANNEL_ERROR') {
-                        console.error('Supabase channel error.');
+                        console.error('Supabase channel error: Realtime subscription failed. Check your Supabase URL, Key, and Realtime settings in your project dashboard.');
+                        statusDisplay.textContent = "❌ خطای بلادرنگ (Realtime). لطفاً کلیدها و تنظیمات Realtime را بررسی کنید.";
+                        updateUI(null);
                     }
                 });
         }
 
         // تابع برای جابجایی وضعیت
         async function toggleStatus() {
-            if (!supabase) {
-                console.error("Supabase client not initialized.");
+            if (!supabase || toggleButton.disabled) {
+                console.error("Supabase client not initialized or button is disabled.");
                 return;
             }
             
-            // غیرفعال کردن دکمه هنگام پردازش
             toggleButton.disabled = true;
             toggleButton.textContent = "در حال ذخیره...";
             
             try {
-                const currentStatus = toggleButton.dataset.isActive === 'true'; // تبدیل رشته به بولین
+                const currentStatus = toggleButton.dataset.isActive === 'true';
                 const newStatus = !currentStatus;
 
-                // به‌روزرسانی ردیف وضعیت در جدول
-                // ستون‌های updated_at و updated_by که باعث خطا می‌شدند حذف شدند.
                 const { error } = await supabase
                     .from(TABLE_NAME)
                     .update({ 
                         is_active: newStatus
                     })
-                    .eq('id', STATUS_ROW_ID); // به‌روزرسانی فقط ردیفی با ID مشخص
+                    .eq('id', STATUS_ROW_ID);
                 
                 if (error) throw error;
                 
                 console.log(`Status successfully toggled to: ${newStatus}`);
-                // UI توسط شنونده بلادرنگ (Realtime listener) به‌طور خودکار به‌روز می‌شود
             } catch (error) {
                 console.error("Error toggling status:", error);
-                // فعال‌سازی مجدد دکمه در صورت خطا
                 toggleButton.disabled = false; 
-                // از modal UI به جای alert استفاده می‌کنیم
                 statusDisplay.textContent = "خطا در به‌روزرسانی وضعیت. در کنسول لاگ را بررسی کنید.";
-                setTimeout(() => fetchInitialStatus(), 3000); // تلاش برای بازیابی وضعیت
+                setTimeout(() => fetchInitialStatus(), 3000);
             }
         }
 
-        // افزودن شنونده کلیک به دکمه
-        toggleButton.addEventListener('click', toggleStatus);
+        // --- شروع برنامه ---
+        async function startSupabaseClient() {
+            // Check for generic placeholder values and stop if found.
+            if (supabaseUrl === EXAMPLE_URL || supabaseAnonKey === EXAMPLE_KEY) {
+                console.error("Supabase configuration is missing or invalid. Please set your actual URL and Key in config.js.");
+                pinLoadingStatus.textContent = "❌ خطا: کلیدهای سوپابیس (URL/Key) موجود نیستند یا نامعتبرند. (config.js را بررسی کنید)";
+                return; 
+            }
 
-        // شروع برنامه
+            try {
+                // ساخت کلاینت سوپابیس
+                supabase = createClient(supabaseUrl, supabaseAnonKey);
+                // کلید امنیتی را قبل از فعال‌سازی صفحه ورود بارگذاری کن
+                await fetchSecretPin();
+            } catch (error) {
+                console.error("Supabase Initialization Error:", error);
+                pinLoadingStatus.textContent = "خطا در اتصال اولیه به سوپابیس.";
+            }
+        }
+
+        function initializeApp() {
+            // Set up PIN input listeners
+            pinSubmitButton.addEventListener('click', checkPIN);
+            pinInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') checkPIN();
+            });
+            
+            toggleButton.addEventListener('click', toggleStatus);
+
+            // Start the Supabase client connection and fetch PIN
+            startSupabaseClient(); 
+        }
+
         window.onload = initializeApp;
 
     </script>
