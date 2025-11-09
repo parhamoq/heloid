@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>سوئیچ </title>
+    <title>سوئیچ وضعیس</title>
     <!-- بارگذاری Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -82,6 +82,13 @@
             EXAMPLE_KEY 
         } from './config.js'; // کلیدها از فایل config.js بارگذاری می‌شوند
 
+        // --- توابع کمکی ---
+        // تابع جایگزین برای ساخت یک ID موقت (برای مرورگرهایی که randomUUID را ندارند)
+        const generateUUIDFallback = () => {
+            // یک ID ساده و نسبتاً منحصربه‌فرد بر اساس زمان و اعداد تصادفی ایجاد می‌کند.
+            return 'temp-' + Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
+        };
+        
         // --- تنظیمات امنیتی و دیتابیس ---
         // جدول اصلی برای نگهداری وضعیت سوئیچ
         const TABLE_NAME = 'toggle_status';
@@ -92,7 +99,12 @@
         const SECRETS_ROW_ID = 1;
 
         let supabase;
-        let userId = crypto.randomUUID(); 
+        
+        // اصلاح خطای reported: استفاده از randomUUID یا تابع جایگزین
+        let userId = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') 
+             ? crypto.randomUUID() 
+             : generateUUIDFallback(); 
+        
         let secretPin = null; // متغیر برای نگهداری کلید امنیتی خوانده شده از دیتابیس
 
         // عناصر DOM
