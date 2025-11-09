@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سوئیچ وضعیت بلادرنگ سوپابیس</title>
+    <!-- بارگذاری Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Tahoma', 'Arial', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* استایل‌های اختصاصی برای دکمه و انیمیشن */
+        .toggle-button {
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .toggle-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.2), 0 6px 10px -3px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4 font-sans">
+
+    <div id="app" class="w-full max-w-lg p-6 md:p-10 bg-white rounded-xl shadow-2xl text-center flex flex-col items-center">
+        <!-- عنوان اصلی -->
+        <h1 class="text-3xl font-extrabold text-gray-800 mb-8">وضعیت سوئیچ هوشمند (Supabase)</h1>
+
+        <!-- نمایشگر وضعیت فعلی -->
+        <div id="statusDisplay" class="text-2xl font-bold p-4 w-full rounded-lg mb-10 transition-colors duration-500">
+            در حال اتصال به دیتابیس...
+        </div>
+
+        <!-- دکمه خاموش/روشن کردن -->
+        <button id="toggleButton" disabled class="toggle-button text-white font-bold py-4 px-8 rounded-full cursor-pointer transition-all duration-300 w-full sm:w-2/3 opacity-50">
+            ...
+        </button>
+
+        <!-- نمایشگر شناسه کاربری (برای اهداف همکاری) -->
+        <p id="userIdDisplay" class="text-xs text-gray-400 mt-6"></p>
+    </div>
+
+    <!-- اسکریپت‌های Supabase و منطق برنامه -->
+    <script type="module">
+        // وارد کردن ماژول Supabase
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+        // تنظیمات Supabase از متغیرهای سراسری محیط (شما باید آنها را در محیط خود تعریف کنید)
+        const supabaseUrl = typeof __supabase_url !== 'undefined' ? __supabase_url : 'https://jljudmnngrepmhgzwhhn.supabase.co'; // URL پروژه
+        const supabaseAnonKey = typeof __supabase_anon_key !== 'undefined' ? __supabase_anon_key : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsanVkbW5uZ3JlcG1oZ3p3aGhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2OTg3MDAsImV4cCI6MjA3ODI3NDcwMH0.ajjY57gb92PwiOpzoRs6HFRfeBn9G-wSVbt9-lmNCU0'; // کلید عمومی
+        
+        // نام جدول در سوپابیس که وضعیت در آن ذخیره می‌شود
+        const TABLE_NAME = 'toggle_status';
+        // شناسه ردیف در جدول که همیشه برای ذخیره وضعیت استفاده می‌شود (فرض می‌کنیم فقط یک ردیف است)
+        const STATUS_ROW_ID = 1; 
+
+        let supabase;
+        let userId = crypto.randomUUID(); // از یک شناسه تصادفی برای ردیابی تغییردهنده استفاده می‌کنیم
+
+        // عناصر DOM
+        const statusDisplay = document.getElementById('statusDisplay');
+        const toggleButton = document.getElementById('toggleButton');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+
+        // تابع برای به‌روزرسانی UI بر اساس وضعیت جدید
+        const updateUI = (isActive) => {
+            if (isActive === true) {
+                statusDisplay.textContent = "وضعیت: روشن";
+                statusDisplay.className = 'text-2xl font-bold p-4 w-full rounded-lg mb-10 transition-colors duration-500 bg-green-100 text-green-700 ring-4 ring-green-300';
+                toggleButton.textContent = "خاموش کن";
+                toggleButton.className = 'toggle-button bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-full cursor-pointer transition-all duration-300 w-full sm:w-2/3';
+                toggleButton.disabled = false;
+            } else if (isActive === false) {
+                statusDisplay.textContent = "وضعیت: خاموش";
+                statusDisplay.className = 'text-2xl font-bold p-4 w-full rounded-lg mb-10 transition-colors duration-500 bg-red-100 text-red-700 ring-4 ring-red-300';
+                toggleButton.textContent = "روشن کن";
+                toggleButton.className = 'toggle-button bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-full cursor-pointer transition-all duration-300 w-full sm:w-2/3';
+                toggleButton.disabled = false;
+            } else {
+                statusDisplay.textContent = "در حال اتصال...";
+                statusDisplay.className = 'text-2xl font-bold p-4 w-full rounded-lg mb-10 transition-colors duration-500 bg-gray-100 text-gray-500';
+                toggleButton.textContent = "لطفاً صبر کنید";
+                toggleButton.className = 'toggle-button bg-gray-400 text-white font-bold py-4 px-8 rounded-full opacity-50 w-full sm:w-2/3';
+                toggleButton.disabled = true;
+            }
+        };
+
+        // تابع برای مقداردهی اولیه برنامه
+        async function initializeApp() {
+            if (supabaseUrl === 'https://jljudmnngrepmhgzwhhn.supabase.co' && supabaseAnonKey === 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsanVkbW5uZ3JlcG1oZ3p3aGhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2OTg3MDAsImV4cCI6MjA3ODI3NDcwMH0.ajjY57gb92PwiOpzoRs6HFRfeBn9G-wSVbt9-lmNCU0') {
+                console.error("Supabase configuration is using placeholder values. Please set your actual URL and Key.");
+                statusDisplay.textContent = "هشدار: از مقادیر پیش‌فرض سوپابیس استفاده شده. اتصال ممکن است کار نکند.";
+                // اجازه می‌دهیم برنامه با placeholder ادامه یابد
+            }
+
+            try {
+                // ساخت کلاینت سوپابیس
+                supabase = createClient(supabaseUrl, supabaseAnonKey);
+                
+                userIdDisplay.textContent = `شناسه کاربری (موقت): ${userId}`;
+
+                // 1. دریافت وضعیت اولیه
+                await fetchInitialStatus();
+
+                // 2. راه‌اندازی شنونده بلادرنگ
+                setupRealtimeListener();
+
+            } catch (error) {
+                console.error("Supabase Initialization Error:", error);
+                statusDisplay.textContent = "خطا در اتصال به سوپابیس.";
+                updateUI(null);
+            }
+        }
+        
+        // تابع برای دریافت وضعیت اولیه از جدول
+        async function fetchInitialStatus() {
+             const { data, error } = await supabase
+                .from(TABLE_NAME)
+                .select('is_active')
+                .eq('id', STATUS_ROW_ID)
+                .single();
+                
+            if (error && error.code === 'PGRST116') { // خطا: ردیفی با این ID پیدا نشد.
+                console.log("Status row not found. Inserting initial status (true).");
+                // تنها id و is_active را وارد می‌کنیم تا خطای ستون‌های اضافی رفع شود.
+                const initialData = { id: STATUS_ROW_ID, is_active: true }; 
+                const { error: insertError } = await supabase.from(TABLE_NAME).insert(initialData);
+                if (insertError) {
+                    console.error("Error inserting initial status:", insertError);
+                    statusDisplay.textContent = "خطا در ایجاد وضعیت اولیه.";
+                    updateUI(null);
+                    return;
+                }
+                updateUI(true);
+                toggleButton.dataset.isActive = true;
+            } else if (error) {
+                console.error("Error fetching initial status:", error);
+                statusDisplay.textContent = "خطا در دریافت وضعیت اولیه.";
+                updateUI(null);
+            } else if (data) {
+                const isActive = data.is_active;
+                updateUI(isActive);
+                toggleButton.dataset.isActive = isActive;
+            }
+        }
+
+        // تابع برای راه‌اندازی شنونده بلادرنگ (Real-time)
+        function setupRealtimeListener() {
+            // ساخت کانال Realtime و گوش دادن به تغییرات UPDATE در جدول و ردیف مورد نظر
+            supabase.channel('status_channel')
+                .on('postgres_changes', { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: TABLE_NAME,
+                    filter: `id=eq.${STATUS_ROW_ID}` 
+                }, (payload) => {
+                    console.log('Realtime change received:', payload);
+                    const isActive = payload.new.is_active;
+                    updateUI(isActive);
+                    // ذخیره وضعیت در دکمه برای دسترسی آسان در تابع Toggle
+                    toggleButton.dataset.isActive = isActive;
+                })
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        console.log('Successfully subscribed to status changes.');
+                    } else if (status === 'CHANNEL_ERROR') {
+                        console.error('Supabase channel error.');
+                    }
+                });
+        }
+
+        // تابع برای جابجایی وضعیت
+        async function toggleStatus() {
+            if (!supabase) {
+                console.error("Supabase client not initialized.");
+                return;
+            }
+            
+            // غیرفعال کردن دکمه هنگام پردازش
+            toggleButton.disabled = true;
+            toggleButton.textContent = "در حال ذخیره...";
+            
+            try {
+                const currentStatus = toggleButton.dataset.isActive === 'true'; // تبدیل رشته به بولین
+                const newStatus = !currentStatus;
+
+                // به‌روزرسانی ردیف وضعیت در جدول
+                // ستون‌های updated_at و updated_by که باعث خطا می‌شدند حذف شدند.
+                const { error } = await supabase
+                    .from(TABLE_NAME)
+                    .update({ 
+                        is_active: newStatus
+                    })
+                    .eq('id', STATUS_ROW_ID); // به‌روزرسانی فقط ردیفی با ID مشخص
+                
+                if (error) throw error;
+                
+                console.log(`Status successfully toggled to: ${newStatus}`);
+                // UI توسط شنونده بلادرنگ (Realtime listener) به‌طور خودکار به‌روز می‌شود
+            } catch (error) {
+                console.error("Error toggling status:", error);
+                // فعال‌سازی مجدد دکمه در صورت خطا
+                toggleButton.disabled = false; 
+                // از modal UI به جای alert استفاده می‌کنیم
+                statusDisplay.textContent = "خطا در به‌روزرسانی وضعیت. در کنسول لاگ را بررسی کنید.";
+                setTimeout(() => fetchInitialStatus(), 3000); // تلاش برای بازیابی وضعیت
+            }
+        }
+
+        // افزودن شنونده کلیک به دکمه
+        toggleButton.addEventListener('click', toggleStatus);
+
+        // شروع برنامه
+        window.onload = initializeApp;
+
+    </script>
+</body>
+</html>
