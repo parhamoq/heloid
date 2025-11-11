@@ -3,37 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>سوئیچ وضعیت ساده</title>
+    <title>سوئیچ وضعیت هوشمند</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* ساد‌ه‌تر و فقط برای Transition مورد نیاز */
-        .toggle-button {
-            transition: all 0.3s ease-in-out;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        .font-sans { font-family: 'Inter', Tahoma, sans-serif; }
+        .toggle-button { transition: all 0.3s ease-in-out; }
     </style>
 </head>
 <body class="bg-gray-50 flex items-center justify-center min-h-screen p-4 font-sans">
 
     <div id="loginScreen" class="absolute inset-0 bg-gray-900 bg-opacity-95 flex items-center justify-center p-4 z-50">
         <div class="bg-white p-6 rounded-xl shadow-2xl text-center w-full max-w-sm">
-            <h2 class="text-2xl font-bold text-indigo-600 mb-4">🔒 ورود</h2>
-            <p id="pinLoadingStatus" class="text-sm text-gray-500 mb-4">در حال بارگذاری کلید...</p>
-            
-            <input 
-                type="password" 
-                id="pinInput" 
-                maxlength="4" 
-                placeholder="کد 4 رقمی" 
-                disabled
-                class="w-full text-center border-2 border-gray-300 rounded-lg p-3 text-2xl outline-none mb-4 opacity-50 transition" 
-            />
-            <button id="pinSubmitButton" disabled class="w-full bg-indigo-400 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md">
-                ورود
-            </button>
-            <p id="pinError" class="text-red-500 text-sm mt-3 hidden">کد امنیتی اشتباه است.</p>
+            <h2 class="text-2xl font-bold text-indigo-600 mb-4">🔒 ورود / تنظیمات</h2>
+
+            <div id="pinLoginForm">
+                <p id="pinLoadingStatus" class="text-sm text-gray-500 mb-4">در حال بارگذاری کلید...</p>
+                <input 
+                    type="password" 
+                    id="pinInput" 
+                    maxlength="4" 
+                    placeholder="کد 4 رقمی" 
+                    disabled
+                    class="w-full text-center border-2 border-gray-300 rounded-lg p-3 text-2xl outline-none mb-4 opacity-50 transition" 
+                />
+                <button id="pinSubmitButton" disabled class="w-full bg-indigo-400 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md">
+                    ورود
+                </button>
+                <p id="pinError" class="text-red-500 text-sm mt-3 hidden">کد امنیتی اشتباه است.</p>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-gray-200">
+                <button id="setupButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md hover:shadow-lg">
+                    ⚙️ تنظیمات Wi-Fi برد (Setup Board)
+                </button>
+            </div>
         </div>
     </div>
-    
+
+    <div id="setupModal" class="absolute inset-0 bg-gray-900 bg-opacity-95 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm">
+            <h2 class="text-2xl font-bold text-blue-600 mb-6 text-center">تنظیمات Wi-Fi از طریق بلوتوث</h2>
+            <p id="bleStatus" class="text-sm text-gray-600 mb-4 text-center">لطفاً برد ESP32 را در حالت تنظیمات قرار دهید.</p>
+
+            <label for="ssidInput" class="block text-sm font-medium text-gray-700 mt-4 mb-1">نام شبکه (SSID)</label>
+            <input type="text" id="ssidInput" placeholder="نام وای‌فای" class="w-full border-2 border-gray-300 rounded-lg p-3 outline-none mb-4">
+
+            <label for="passwordInput" class="block text-sm font-medium text-gray-700 mb-1">رمز عبور (Password)</label>
+            <input type="password" id="passwordInput" placeholder="رمز وای‌فای" class="w-full border-2 border-gray-300 rounded-lg p-3 outline-none mb-6">
+
+            <button id="connectButton" disabled class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md disabled:opacity-50">
+                اتصال و ارسال تنظیمات
+            </button>
+            
+            <button id="backToLogin" class="w-full mt-3 text-gray-600 hover:text-gray-800 py-2 rounded-lg transition duration-150">
+                بازگشت به صفحه ورود
+            </button>
+        </div>
+    </div>
+
     <div id="app" class="w-full max-w-sm p-6 bg-white rounded-xl shadow-2xl text-center flex flex-col items-center hidden">
         <h1 class="text-2xl font-bold text-gray-800 mb-6">سوئیچ هوشمند</h1>
 
@@ -48,31 +76,32 @@
 
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-        // فرض می‌کنیم config.js شامل متغیرهای مورد نیاز است
-        import { supabaseUrl, supabaseAnonKey } from './config.js'; 
+        import { supabaseUrl, supabaseAnonKey, ESP_NAME, WIFI_PROV_SERVICE_UUID, SSID_CHARACTERISTIC_UUID, PASS_CHARACTERISTIC_UUID } from './config.js';
 
-        // --- تنظیمات ثابت ---
         const TABLE_NAME = 'toggle_status';
-        const STATUS_ROW_ID = 1; // همیشه ردیف اول را آپدیت می‌کنیم
+        const STATUS_ROW_ID = 1; 
         const SECRETS_TABLE_NAME = 'app_config';
         const SECRETS_ROW_ID = 1;
-        
-        // --- عناصر DOM ---
+
         const app = document.getElementById('app');
         const loginScreen = document.getElementById('loginScreen');
+        const setupModal = document.getElementById('setupModal');
         const pinInput = document.getElementById('pinInput');
         const pinSubmitButton = document.getElementById('pinSubmitButton');
         const pinError = document.getElementById('pinError');
         const pinLoadingStatus = document.getElementById('pinLoadingStatus');
         const statusDisplay = document.getElementById('statusDisplay');
         const toggleButton = document.getElementById('toggleButton');
+        const setupButton = document.getElementById('setupButton');
+        const backToLogin = document.getElementById('backToLogin');
+        const ssidInput = document.getElementById('ssidInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const connectButton = document.getElementById('connectButton');
+        const bleStatus = document.getElementById('bleStatus');
 
         let supabase;
         let secretPin = null;
 
-        // --- توابع UI ---
-        
-        /** به‌روزرسانی UI بر اساس وضعیت جدید **/
         const updateUI = (isActive) => {
             const buttonState = {
                 true: { text: "خاموش کن", classes: 'bg-red-600 hover:bg-red-700' },
@@ -100,9 +129,67 @@
             }
         };
 
-        // --- توابع دیتابیس (Supabase) ---
+        async function connectAndSendCredentials() {
+            if (!navigator.bluetooth) {
+                bleStatus.textContent = "❌ مرورگر شما از Web Bluetooth پشتیبانی نمی‌کند.";
+                connectButton.disabled = true;
+                return;
+            }
 
-        /** خواندن کلید امنیتی (PIN) از دیتابیس **/
+            const ssid = ssidInput.value.trim();
+            const password = passwordInput.value;
+
+            if (ssid.length < 1) {
+                bleStatus.textContent = "لطفاً نام شبکه (SSID) را وارد کنید.";
+                return;
+            }
+
+            bleStatus.textContent = "🔍 در حال جستجوی برد ESP32...";
+            connectButton.disabled = true;
+
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: ESP_NAME }],
+                    optionalServices: [WIFI_PROV_SERVICE_UUID]
+                });
+                
+                bleStatus.textContent = `✅ دستگاه ${device.name} پیدا شد. در حال اتصال...`;
+
+                const server = await device.gatt.connect();
+                bleStatus.textContent = "🔗 متصل شد. در حال جستجوی سرویس...";
+
+                const service = await server.getPrimaryService(WIFI_PROV_SERVICE_UUID);
+                bleStatus.textContent = "📡 سرویس Wi-Fi Provisioning پیدا شد. در حال ارسال داده...";
+
+                const ssidCharacteristic = await service.getCharacteristic(SSID_CHARACTERISTIC_UUID);
+                const passCharacteristic = await service.getCharacteristic(PASS_CHARACTERISTIC_UUID);
+
+                await ssidCharacteristic.writeValue(new TextEncoder().encode(ssid));
+                bleStatus.textContent = `🔑 SSID (${ssid}) ارسال شد. در حال ارسال رمز...`;
+                
+                await passCharacteristic.writeValue(new TextEncoder().encode(password));
+                bleStatus.textContent = "✅ رمز عبور با موفقیت ارسال شد! ESP32 در حال اتصال به وای‌فای است.";
+
+                server.disconnect();
+
+                setTimeout(() => {
+                    setupModal.classList.add('hidden');
+                    loginScreen.classList.remove('hidden');
+                    bleStatus.textContent = "لطفاً برد ESP32 را در حالت تنظیمات قرار دهید.";
+                    connectButton.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                console.error("Bluetooth Error:", error);
+                if (error && error.message && error.message.includes("cancelled")) {
+                     bleStatus.textContent = "عملیات توسط کاربر لغو شد.";
+                } else {
+                    bleStatus.textContent = `❌ خطای اتصال بلوتوث: ${error?.message || error}`;
+                }
+                connectButton.disabled = false;
+            }
+        }
+
         async function fetchSecretPin() {
             pinLoadingStatus.textContent = "در حال بارگذاری کلید امنیتی...";
             try {
@@ -116,38 +203,38 @@
 
                 secretPin = data.pin_code;
                 pinLoadingStatus.textContent = "کد امنیتی را وارد کنید:";
-                
-                // فعال‌سازی المان‌های ورود
+
                 pinInput.disabled = false;
                 pinInput.classList.remove('opacity-50');
                 pinSubmitButton.disabled = false;
                 pinSubmitButton.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md hover:shadow-lg';
+
+                setupButton.disabled = false; 
             } catch (error) {
                 console.error("Error fetching PIN:", error);
                 pinLoadingStatus.textContent = "❌ خطا: کلید امنیتی بارگذاری نشد.";
                 pinSubmitButton.disabled = true;
+                setupButton.disabled = false; 
             }
         }
 
-        /** دریافت وضعیت اولیه سوئیچ **/
         async function fetchInitialStatus() {
-            updateUI(null); // نمایش حالت "در حال اتصال"
+            updateUI(null);
 
             const { data, error } = await supabase
                 .from(TABLE_NAME)
                 .select('is_active')
                 .eq('id', STATUS_ROW_ID)
-                .maybeSingle(); // استفاده از maybeSingle برای مدیریت عدم وجود ردیف
+                .maybeSingle();
 
             if (error) {
                 console.error("Error fetching status:", error);
                 statusDisplay.textContent = "❌ خطا در دریافت وضعیت اولیه.";
                 updateUI(null);
                 return;
-            } 
+            }
 
             if (!data) {
-                // اگر ردیفی پیدا نشد، یک ردیف اولیه (روشن) ایجاد کن
                 console.log("Status row not found. Inserting initial status (true).");
                 const { error: insertError } = await supabase.from(TABLE_NAME).insert({ id: STATUS_ROW_ID, is_active: true });
                 if (insertError) {
@@ -162,7 +249,6 @@
             }
         }
 
-        /** راه‌اندازی شنونده بلادرنگ (Real-time) **/
         function setupRealtimeListener() {
             supabase.channel('status_channel')
                 .on('postgres_changes', { 
@@ -172,90 +258,91 @@
                     filter: `id=eq.${STATUS_ROW_ID}` 
                 }, (payload) => {
                     console.log('Realtime change received:', payload);
-                    // Realtime مستقیماً UI را به‌روز می‌کند
                     updateUI(payload.new.is_active);
                 })
                 .subscribe((status) => {
                     if (status !== 'SUBSCRIBED') {
                         console.error('Realtime subscription failed or had an error:', status);
-                        // اگر Realtime دچار مشکل شد، یک بار دیگر وضعیت را بخوان تا حداقل دکمه فعال شود
                         if (status === 'CHANNEL_ERROR') {
-                             statusDisplay.textContent = "⚠️ اخطار: خطای Realtime. به‌روزرسانی‌ها با تاخیر انجام می‌شوند.";
+                            statusDisplay.textContent = "⚠️ اخطار: خطای Realtime. به‌روزرسانی‌ها با تاخیر انجام می‌شوند.";
                         }
                     }
                 });
         }
 
-        /** جابجایی وضعیت و به‌روزرسانی دیتابیس (رفع مشکل اصلی) **/
         async function toggleStatus() {
             const currentStatus = toggleButton.dataset.isActive === 'true';
             const newStatus = !currentStatus;
-            
-            // نمایش حالت "در حال ذخیره..." و غیرفعال کردن دکمه
+
             toggleButton.disabled = true;
             toggleButton.textContent = "در حال ذخیره...";
-            statusDisplay.textContent = "در حال ارسال تغییر به دیتابیس..."; // نمایش پیام انتظار
+            statusDisplay.textContent = "در حال ارسال تغییر به دیتابیس...";
 
             try {
                 const { error } = await supabase
                     .from(TABLE_NAME)
                     .update({ is_active: newStatus })
                     .eq('id', STATUS_ROW_ID);
-                
+
                 if (error) throw error;
-                
+
                 console.log(`Status successfully toggled to: ${newStatus}`);
-                
-                // 🚀 حل مشکل اصلی: 
-                // بلافاصله UI را با وضعیت جدید (که در دیتابیس ثبت شده) به‌روز می‌کنیم.
-                // اگر Realtime سریع‌تر عمل کند، این فراخوانی اضافی است اما تضمین می‌کند دکمه گیر نکند.
-                updateUI(newStatus); 
-                
+                updateUI(newStatus);
+
             } catch (error) {
                 console.error("Error toggling status:", error);
-                // در صورت خطا، دکمه را دوباره فعال و وضعیت را با آخرین حالت از دیتابیس همگام کن
                 statusDisplay.textContent = "❌ خطا در ذخیره وضعیت. لطفاً دوباره تلاش کنید.";
-                fetchInitialStatus(); 
+                fetchInitialStatus();
             }
         }
 
-        // --- توابع کنترل برنامه ---
-
-        /** بررسی کد امنیتی و شروع منطق اصلی **/
         function checkPIN() {
             pinError.classList.add('hidden');
 
             if (pinInput.value === secretPin) { 
                 loginScreen.classList.add('hidden');
                 app.classList.remove('hidden'); 
-                
-                fetchInitialStatus(); // 1. دریافت وضعیت اولیه
-                setupRealtimeListener(); // 2. راه‌اندازی Realtime
+
+                fetchInitialStatus();
+                setupRealtimeListener();
             } else {
                 pinError.classList.remove('hidden');
                 pinInput.value = ''; 
             }
         }
         
-        /** شروع برنامه **/
         function initializeApp() {
             try {
-                // ساخت کلاینت سوپابیس
                 supabase = createClient(supabaseUrl, supabaseAnonKey);
-                
-                // گوش‌دهنده‌ها
-                pinSubmitButton.addEventListener('click', checkPIN);
-                pinInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') checkPIN();
-                });
-                toggleButton.addEventListener('click', toggleStatus);
-
-                // بارگذاری کلید امنیتی برای ورود
-                fetchSecretPin();
             } catch (error) {
-                 console.error("Supabase Client Initialization Error:", error);
-                 pinLoadingStatus.textContent = "❌ خطای راه‌اندازی اولیه سوپابیس.";
+                console.error("Supabase Client Initialization Error:", error);
+                pinLoadingStatus.textContent = "❌ خطای راه‌اندازی اولیه سوپابیس.";
             }
+
+            pinSubmitButton.addEventListener('click', checkPIN);
+            pinInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') checkPIN();
+            });
+            toggleButton.addEventListener('click', toggleStatus);
+
+            setupButton.addEventListener('click', () => {
+                loginScreen.classList.add('hidden');
+                setupModal.classList.remove('hidden');
+                ssidInput.focus();
+            });
+
+            backToLogin.addEventListener('click', () => {
+                setupModal.classList.add('hidden');
+                loginScreen.classList.remove('hidden');
+            });
+            
+            connectButton.addEventListener('click', connectAndSendCredentials);
+            
+            ssidInput.addEventListener('input', () => {
+                connectButton.disabled = ssidInput.value.trim().length < 1;
+            });
+
+            fetchSecretPin();
         }
 
         window.onload = initializeApp;
