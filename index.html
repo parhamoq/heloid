@@ -5,16 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>سوئیچ وضعیت هوشمند</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- اضافه کردن اسکریپت نمایش دهنده مدل سه بعدی -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         .font-sans { font-family: 'Inter', Tahoma, sans-serif; }
         .toggle-button { transition: all 0.3s ease-in-out; }
+        
+        /* استایل‌های اختصاصی مدل سه بعدی */
+        model-viewer {
+            width: 100%;
+            height: 400px;
+            background-color: #f3f4f6;
+            border-radius: 0.75rem;
+            --poster-color: transparent;
+        }
     </style>
 </head>
 <body class="bg-gray-50 flex items-center justify-center min-h-screen p-4 font-sans">
 
-    <div id="loginScreen" class="absolute inset-0 bg-gray-900 bg-opacity-95 flex items-center justify-center p-4 z-50">
-        <div class="bg-white p-6 rounded-xl shadow-2xl text-center w-full max-w-sm">
+    <!-- صفحه لاگین -->
+    <div id="loginScreen" class="absolute inset-0 bg-gray-900 bg-opacity-95 flex items-center justify-center p-4 z-40 overflow-y-auto">
+        <div class="bg-white p-6 rounded-xl shadow-2xl text-center w-full max-w-sm my-auto">
             <h2 class="text-2xl font-bold text-indigo-600 mb-4">🔒 ورود / تنظیمات</h2>
 
             <div id="pinLoginForm">
@@ -33,14 +45,43 @@
                 <p id="pinError" class="text-red-500 text-sm mt-3 hidden">کد امنیتی اشتباه است.</p>
             </div>
 
-            <div class="mt-6 pt-4 border-t border-gray-200">
-                <button id="setupButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md hover:shadow-lg">
-                    ⚙️ تنظیمات Wi-Fi برد (Setup Board)
+            <div class="mt-6 pt-4 border-t border-gray-200 space-y-3">
+                <button id="setupButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+                    <span>⚙️</span> تنظیمات Wi-Fi برد
+                </button>
+                
+                <!-- دکمه جدید نمایش مدل سه بعدی -->
+                <button id="show3dButton" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+                    <span>🧊</span> نمایش مدل سه بعدی محصول
                 </button>
             </div>
         </div>
     </div>
 
+    <!-- مودال نمایش مدل سه بعدی -->
+    <div id="modelModal" class="absolute inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white p-4 rounded-xl shadow-2xl w-full max-w-md relative">
+            <button id="closeModelButton" class="absolute top-2 right-2 text-gray-500 hover:text-red-500 text-2xl font-bold z-10 p-2">&times;</button>
+            <h3 class="text-xl font-bold text-gray-800 mb-4 text-center">مدل شماتیک گاز هوشمند</h3>
+            
+            <!-- 
+                نکته مهم: فایل خودت رو جایگزین 'path/to/your/gas-model.glb' کن.
+                من فعلا یک مدل تستی فضانورد گذاشتم که ببینی کار میکنه.
+            -->
+            <model-viewer 
+                src="./SSO.glb"
+                alt="مدل سه بعدی گاز هوشمند"
+                auto-rotate
+                camera-controls
+                ar
+                shadow-intensity="1">
+            </model-viewer>
+            
+            <p class="text-center text-sm text-gray-500 mt-4">برای چرخش مدل انگشت خود را بکشید</p>
+        </div>
+    </div>
+
+    <!-- مودال تنظیمات وای‌فای -->
     <div id="setupModal" class="absolute inset-0 bg-gray-900 bg-opacity-95 flex items-center justify-center p-4 z-50 hidden">
         <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm">
             <h2 class="text-2xl font-bold text-blue-600 mb-6 text-center">تنظیمات Wi-Fi از طریق بلوتوث</h2>
@@ -62,6 +103,7 @@
         </div>
     </div>
 
+    <!-- صفحه اصلی کنترل -->
     <div id="app" class="w-full max-w-sm p-6 bg-white rounded-xl shadow-2xl text-center flex flex-col items-center hidden">
         <h1 class="text-2xl font-bold text-gray-800 mb-6">سوئیچ هوشمند</h1>
 
@@ -86,6 +128,8 @@
         const app = document.getElementById('app');
         const loginScreen = document.getElementById('loginScreen');
         const setupModal = document.getElementById('setupModal');
+        const modelModal = document.getElementById('modelModal'); // مودال جدید
+        
         const pinInput = document.getElementById('pinInput');
         const pinSubmitButton = document.getElementById('pinSubmitButton');
         const pinError = document.getElementById('pinError');
@@ -93,6 +137,8 @@
         const statusDisplay = document.getElementById('statusDisplay');
         const toggleButton = document.getElementById('toggleButton');
         const setupButton = document.getElementById('setupButton');
+        const show3dButton = document.getElementById('show3dButton'); // دکمه جدید
+        const closeModelButton = document.getElementById('closeModelButton'); // دکمه بستن مودال جدید
         const backToLogin = document.getElementById('backToLogin');
         const ssidInput = document.getElementById('ssidInput');
         const passwordInput = document.getElementById('passwordInput');
@@ -182,7 +228,7 @@
             } catch (error) {
                 console.error("Bluetooth Error:", error);
                 if (error && error.message && error.message.includes("cancelled")) {
-                     bleStatus.textContent = "عملیات توسط کاربر لغو شد.";
+                      bleStatus.textContent = "عملیات توسط کاربر لغو شد.";
                 } else {
                     bleStatus.textContent = `❌ خطای اتصال بلوتوث: ${error?.message || error}`;
                 }
@@ -210,11 +256,13 @@
                 pinSubmitButton.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md hover:shadow-lg';
 
                 setupButton.disabled = false; 
+                show3dButton.disabled = false; // فعال کردن دکمه سه بعدی
             } catch (error) {
                 console.error("Error fetching PIN:", error);
                 pinLoadingStatus.textContent = "❌ خطا: کلید امنیتی بارگذاری نشد.";
                 pinSubmitButton.disabled = true;
                 setupButton.disabled = false; 
+                show3dButton.disabled = false;
             }
         }
 
@@ -325,6 +373,7 @@
             });
             toggleButton.addEventListener('click', toggleStatus);
 
+            // رویدادهای مربوط به تنظیمات وای‌فای
             setupButton.addEventListener('click', () => {
                 loginScreen.classList.add('hidden');
                 setupModal.classList.remove('hidden');
@@ -334,6 +383,22 @@
             backToLogin.addEventListener('click', () => {
                 setupModal.classList.add('hidden');
                 loginScreen.classList.remove('hidden');
+            });
+            
+            // رویدادهای مربوط به مدل سه بعدی
+            show3dButton.addEventListener('click', () => {
+                modelModal.classList.remove('hidden');
+            });
+
+            closeModelButton.addEventListener('click', () => {
+                modelModal.classList.add('hidden');
+            });
+
+            // بستن مودال با کلیک روی فضای خالی سیاه
+            modelModal.addEventListener('click', (e) => {
+                if (e.target === modelModal) {
+                    modelModal.classList.add('hidden');
+                }
             });
             
             connectButton.addEventListener('click', connectAndSendCredentials);
