@@ -104,11 +104,11 @@
     </div>
 
     <!-- صفحه اصلی کنترل -->
-    <div id="app" class="w-full max-w-sm p-6 bg-white rounded-xl shadow-2xl text-center flex flex-col items-center hidden">
+    <div id="app" class="w-full max-w-sm p-6 bg-white rounded-xl shadow-2xl text-center flex flex-col items-center hidden overflow-y-auto max-h-screen">
         <!-- ساعت زنده ایران -->
         <div id="iranClock" class="text-sm text-gray-500 mb-3 hidden">--:--:--</div>
 
-        <h1 class="text-2xl font-bold text-gray-800 mb-6">سوئیچ هوشمند</h1>
+        <h1 class="text-2xl font-bold text-gray-800 mb-6">کنترل گاز</h1>
 
         <div id="statusDisplay" class="text-xl font-semibold p-3 w-full rounded-lg mb-6 transition-colors duration-500">
             در حال اتصال...
@@ -118,7 +118,7 @@
             ...
         </button>
 
-        <!-- بخش جدید کنترل شدت گاز -->
+        <!-- بخش کنترل شدت گاز -->
         <div id="gasControlContainer" class="w-full border-t pt-6 mt-2 hidden">
             <div class="flex justify-between items-center mb-4">
                 <span class="text-gray-700 font-medium">میزان باز بودن گاز:</span>
@@ -138,7 +138,7 @@
                 <span>0%</span>
             </div>
 
-            <!-- بخش دما (زیر اسلایدر) -->
+            <!-- بخش دما (زیر اسلایدر گاز) -->
             <div class="mt-4 text-left w-full">
                 <div id="tempContainer" class="p-3 bg-gray-50 rounded-lg text-right">
                     <div class="text-gray-700">دما: <span id="temperatureValue" class="font-bold text-indigo-600">-- °C</span></div>
@@ -146,10 +146,43 @@
                 </div>
             </div>
         </div>
+
+        <!-- بخش جدید: کنترل همزن -->
+        <div id="mixerSection" class="w-full border-t pt-6 mt-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">کنترل همزن</h2>
+            
+            <button id="mixerToggleButton" disabled class="toggle-button text-white font-bold py-3 px-6 rounded-full w-full mb-4 shadow-md opacity-50">
+                در حال بررسی...
+            </button>
+
+            <!-- این بخش وقتی همزن خاموشه مخفی میشه -->
+            <div id="mixerSliderContainer" class="w-full hidden transition-all duration-300">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-gray-700 font-medium">قدرت همزن:</span>
+                    <span id="mixerPowerLabel" class="text-blue-600 font-bold text-lg">0%</span>
+                </div>
+                
+                <input 
+                    type="range" 
+                    id="mixerPowerSlider" 
+                    min="0" 
+                    max="100" 
+                    value="0" 
+                    class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                />
+                <!-- با استفاده از dir=ltr اعداد صفر و صد دقیقاً زیر دو سر اسلایدر تنظیم می‌شن -->
+                <div dir="ltr" class="flex justify-between text-xs text-gray-500 mt-2 px-1 font-semibold">
+                    <span>0%</span>
+                    <span>100%</span>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script type="module">
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+        // توجه: فایل config.js باید در مسیر صحیح کنار این فایل باشه
         import { supabaseUrl, supabaseAnonKey, ESP_NAME, WIFI_PROV_SERVICE_UUID, SSID_CHARACTERISTIC_UUID, PASS_CHARACTERISTIC_UUID } from './config.js';
 
         const TABLE_NAME = 'toggle_status';
@@ -157,13 +190,15 @@
         const SECRETS_TABLE_NAME = 'app_config';
         const SECRETS_ROW_ID = 1;
         
-        // جدول جدید سروو
         const SERVO_TABLE_NAME = 'servo';
         const SERVO_ROW_ID = 1;
 
-        // جدول جدید دما (اسم جدول در Supabase)
         const TEMP_TABLE_NAME = 'tempera';
         const TEMP_ROW_ID = 1;
+
+        // تنظیمات تیبل همزن
+        const MIXER_TABLE_NAME = 'mixer';
+        const MIXER_ROW_ID = 1;
 
         const app = document.getElementById('app');
         const loginScreen = document.getElementById('loginScreen');
@@ -185,21 +220,26 @@
         const connectButton = document.getElementById('connectButton');
         const bleStatus = document.getElementById('bleStatus');
 
-        // المان‌های جدید گاز و دما
         const gasControlContainer = document.getElementById('gasControlContainer');
         const gasSlider = document.getElementById('gasSlider');
         const gasPercentageLabel = document.getElementById('gasPercentageLabel');
         const gasDegreeLabel = document.getElementById('gasDegreeLabel');
 
-        // المان‌های ساعت و دما
         const iranClock = document.getElementById('iranClock');
         const temperatureValue = document.getElementById('temperatureValue');
         const tempUpdatedAt = document.getElementById('tempUpdatedAt');
+
+        // المان‌های جدید همزن
+        const mixerToggleButton = document.getElementById('mixerToggleButton');
+        const mixerSliderContainer = document.getElementById('mixerSliderContainer');
+        const mixerPowerSlider = document.getElementById('mixerPowerSlider');
+        const mixerPowerLabel = document.getElementById('mixerPowerLabel');
 
         let supabase;
         let secretPin = null;
         let iranClockInterval = null;
 
+        // ------ بخش منطق گاز و سوئیچ اصلی ------
         const updateUI = (isActive) => {
             const buttonState = {
                 true: { text: "خاموش کن", classes: 'bg-red-600 hover:bg-red-700' },
@@ -222,7 +262,6 @@
             toggleButton.className = `toggle-button text-white font-bold py-3 px-6 rounded-full w-full mb-6 ${buttonState[state].classes}`;
             toggleButton.disabled = buttonState[state].disabled || false;
             
-            // نمایش یا مخفی کردن کنترل گاز بر اساس وضعیت سوئیچ
             if (isActive === true) {
                 gasControlContainer.classList.remove('hidden');
             } else {
@@ -234,12 +273,8 @@
             }
         };
 
-        // تابع آپدیت زاویه سروو در دیتابیس
         async function updateServoAngle(percentage) {
-            // تبدیل درصد به درجه (0-100 -> 0-180)
             const degree = Math.round((percentage * 180) / 100);
-            
-            // آپدیت لیبل‌ها در صفحه
             gasPercentageLabel.textContent = `${percentage}%`;
             gasDegreeLabel.textContent = `${degree} درجه`;
 
@@ -250,12 +285,114 @@
                     .eq('id', SERVO_ROW_ID);
 
                 if (error) throw error;
-                console.log(`Angle updated to: ${degree}°`); 
             } catch (error) {
                 console.error("Error updating servo angle:", error);
             }
         }
 
+        // ------ بخش جدید: منطق همزن ------
+        const updateMixerUI = (isOn, power) => {
+            if (isOn === null) return; // دیتایی دریافت نشده
+
+            mixerToggleButton.disabled = false;
+            mixerToggleButton.classList.remove('opacity-50', 'bg-gray-400');
+
+            if (isOn) {
+                // اگر روشنه، دکمه قرمز برای خاموش کردن نمایش داده بشه
+                mixerToggleButton.textContent = "خاموش کن";
+                mixerToggleButton.className = "toggle-button text-white font-bold py-3 px-6 rounded-full w-full mb-4 shadow-md bg-red-500 hover:bg-red-600";
+                mixerSliderContainer.classList.remove('hidden');
+            } else {
+                // اگر خاموشه، دکمه سبز برای روشن کردن نمایش داده بشه
+                mixerToggleButton.textContent = "روشن کن";
+                mixerToggleButton.className = "toggle-button text-white font-bold py-3 px-6 rounded-full w-full mb-4 shadow-md bg-green-500 hover:bg-green-600";
+                mixerSliderContainer.classList.add('hidden');
+            }
+
+            if (power !== undefined && power !== null) {
+                mixerPowerSlider.value = power;
+                mixerPowerLabel.textContent = `${power}%`;
+            }
+
+            mixerToggleButton.dataset.isOn = isOn;
+        };
+
+        async function fetchMixerStatus() {
+            try {
+                const { data, error } = await supabase
+                    .from(MIXER_TABLE_NAME)
+                    .select('is_on, power')
+                    .eq('id', MIXER_ROW_ID)
+                    .maybeSingle();
+
+                if (error) throw error;
+
+                if (!data) {
+                    console.log("Mixer row not found. Inserting default.");
+                    const { error: insertError } = await supabase.from(MIXER_TABLE_NAME).insert({ id: MIXER_ROW_ID, is_on: false, power: 0 });
+                    if (insertError) throw insertError;
+                    updateMixerUI(false, 0);
+                } else {
+                    updateMixerUI(data.is_on, data.power);
+                }
+            } catch (error) {
+                console.error("Error fetching mixer status:", error);
+                mixerToggleButton.textContent = "خطا در اتصال به همزن";
+            }
+        }
+
+        async function toggleMixerStatus() {
+            const currentStatus = mixerToggleButton.dataset.isOn === 'true';
+            const newStatus = !currentStatus;
+
+            mixerToggleButton.disabled = true;
+            mixerToggleButton.textContent = "در حال ارسال...";
+
+            try {
+                const { error } = await supabase
+                    .from(MIXER_TABLE_NAME)
+                    .update({ is_on: newStatus })
+                    .eq('id', MIXER_ROW_ID);
+
+                if (error) throw error;
+                // تغییر وضعیت UI به صورت اتوماتیک از طریق Realtime انجام می‌شه
+            } catch (error) {
+                console.error("Error toggling mixer:", error);
+                mixerToggleButton.disabled = false;
+                mixerToggleButton.textContent = "خطا! دوباره تلاش کنید";
+            }
+        }
+
+        async function updateMixerPower(value) {
+            mixerPowerLabel.textContent = `${value}%`;
+            try {
+                const { error } = await supabase
+                    .from(MIXER_TABLE_NAME)
+                    .update({ power: parseInt(value) })
+                    .eq('id', MIXER_ROW_ID);
+
+                if (error) throw error;
+            } catch (error) {
+                console.error("Error updating mixer power:", error);
+            }
+        }
+
+        function setupMixerRealtimeListener() {
+            supabase.channel('mixer_channel')
+                .on('postgres_changes', { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: MIXER_TABLE_NAME,
+                    filter: `id=eq.${MIXER_ROW_ID}` 
+                }, (payload) => {
+                    if (payload && payload.new) {
+                        updateMixerUI(payload.new.is_on, payload.new.power);
+                    }
+                })
+                .subscribe();
+        }
+
+        // ------ تنظیمات بلوتوث و وای‌فای ------
         async function connectAndSendCredentials() {
             if (!navigator.bluetooth) {
                 bleStatus.textContent = "❌ مرورگر شما از Web Bluetooth پشتیبانی نمی‌کند.";
@@ -317,6 +454,7 @@
             }
         }
 
+        // ------ دریافت کلید و وضعیت‌های اولیه ------
         async function fetchSecretPin() {
             pinLoadingStatus.textContent = "در حال بارگذاری کلید امنیتی...";
             try {
@@ -364,7 +502,6 @@
             }
 
             if (!data) {
-                console.log("Status row not found. Inserting initial status (true).");
                 const { error: insertError } = await supabase.from(TABLE_NAME).insert({ id: STATUS_ROW_ID, is_active: true });
                 if (insertError) {
                     console.error("Error inserting initial status:", insertError);
@@ -377,7 +514,7 @@
                 updateUI(data.is_active);
             }
 
-            // دریافت مقدار اولیه سروو
+            // دریافت مقدار اولیه سروو گاز
             const { data: servoData } = await supabase
                 .from(SERVO_TABLE_NAME)
                 .select('ang')
@@ -400,14 +537,12 @@
                     table: TABLE_NAME,
                     filter: `id=eq.${STATUS_ROW_ID}` 
                 }, (payload) => {
-                    console.log('Realtime change received:', payload);
                     updateUI(payload.new.is_active);
                 })
                 .subscribe((status) => {
                     if (status !== 'SUBSCRIBED') {
-                        console.error('Realtime subscription failed or had an error:', status);
                         if (status === 'CHANNEL_ERROR') {
-                            statusDisplay.textContent = "⚠️ اخطار: خطای Realtime. به‌روزرسانی‌ها با تاخیر انجام می‌شوند.";
+                            statusDisplay.textContent = "⚠️ اخطار: خطای Realtime.";
                         }
                     }
                 });
@@ -422,33 +557,22 @@
                     table: TEMP_TABLE_NAME,
                     filter: `id=eq.${TEMP_ROW_ID}`
                 }, (payload) => {
-                    console.log('Temperature realtime payload:', payload);
                     if (payload && payload.new) {
                         updateTemperatureUI(payload.new.temperature, payload.new.updated_at);
                     }
                 })
-                .subscribe((status) => {
-                    if (status !== 'SUBSCRIBED') {
-                        console.warn('Temperature realtime subscription status:', status);
-                    }
-                });
+                .subscribe();
         }
 
         function updateTemperatureUI(temp, updated_at) {
             try {
                 const v = (typeof temp === 'number') ? temp.toFixed(2) : temp;
                 temperatureValue.textContent = `${v} °C`;
-                // نمایش زمان به صورت دقیق همراه با ثانیه (منطقهٔ ایران)
                 const d = new Date(updated_at);
                 const fmt = new Intl.DateTimeFormat('fa-IR', {
                     timeZone: 'Asia/Tehran',
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: false
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
                 });
                 tempUpdatedAt.textContent = fmt.format(d);
             } catch (err) {
@@ -464,14 +588,11 @@
                     .eq('id', TEMP_ROW_ID)
                     .maybeSingle();
 
-                if (error) {
-                    console.error('Error fetching temperature:', error);
-                    return;
-                }
+                if (error) return console.error('Error fetching temperature:', error);
+                
                 if (data) {
                     updateTemperatureUI(data.temperature, data.updated_at);
                 } else {
-                    // اگر سطری نیست، مقداری پیش‌فرض نمایش بده
                     temperatureValue.textContent = `-- °C`;
                     tempUpdatedAt.textContent = `--`;
                 }
@@ -495,13 +616,10 @@
                     .eq('id', STATUS_ROW_ID);
 
                 if (error) throw error;
-
-                console.log(`Status successfully toggled to: ${newStatus}`);
                 updateUI(newStatus);
-
             } catch (error) {
                 console.error("Error toggling status:", error);
-                statusDisplay.textContent = "❌ خطا در ذخیره وضعیت. لطفاً دوباره تلاش کنید.";
+                statusDisplay.textContent = "❌ خطا در ذخیره وضعیت.";
                 fetchInitialStatus();
             } finally {
                 toggleButton.disabled = false;
@@ -515,13 +633,15 @@
                 loginScreen.classList.add('hidden');
                 app.classList.remove('hidden'); 
 
+                // فراخوانی سرویس‌های اصلی بعد از لاگین موفق
                 fetchInitialStatus();
                 setupRealtimeListener();
 
-                // ساعت زنده ایران
+                fetchMixerStatus();
+                setupMixerRealtimeListener();
+
                 startIranClock();
 
-                // دما
                 fetchTemperature();
                 setupTemperatureListener();
             } else {
@@ -531,17 +651,13 @@
         }
 
         function startIranClock() {
-            // اگر قبلاً اینتروال اجرا شده بود پاکش کن
             if (iranClockInterval) clearInterval(iranClockInterval);
 
             function updateClock() {
                 const now = new Date();
                 const fmt = new Intl.DateTimeFormat('fa-IR', {
                     timeZone: 'Asia/Tehran',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: false
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
                 });
                 iranClock.textContent = fmt.format(now);
                 iranClock.classList.remove('hidden');
@@ -567,10 +683,22 @@
 
             // رویداد تغییر اسلایدر گاز
             gasSlider.addEventListener('input', (e) => {
-                const val = e.target.value;
-                updateServoAngle(val);
+                updateServoAngle(e.target.value);
             });
 
+            // رویدادهای همزن
+            mixerToggleButton.addEventListener('click', toggleMixerStatus);
+            
+            // موقع کشیدن اسلایدر فقط عدد رو نشون میده که به دیتابیس فشار نیاد
+            mixerPowerSlider.addEventListener('input', (e) => {
+                mixerPowerLabel.textContent = `${e.target.value}%`;
+            });
+            // وقتی دستت رو از روی اسلایدر برداشتی (change) دیتا سمت دیتابیس آپدیت می‌شه
+            mixerPowerSlider.addEventListener('change', (e) => {
+                updateMixerPower(e.target.value);
+            });
+
+            // رویدادهای مودال‌ها
             setupButton.addEventListener('click', () => {
                 loginScreen.classList.add('hidden');
                 setupModal.classList.remove('hidden');
