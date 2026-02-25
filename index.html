@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>سوئیچ وضعیت هوشمند</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- اضافه کردن اسکریپت نمایش دهنده مدل سه بعدی -->
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
         .font-sans { font-family: 'Inter', Tahoma, sans-serif; }
         .toggle-button { transition: all 0.3s ease-in-out; }
+        
+        /* استایل‌های اختصاصی مدل سه بعدی */
         model-viewer {
             width: 100%;
             height: 400px;
@@ -17,6 +20,8 @@
             border-radius: 0.75rem;
             --poster-color: transparent;
         }
+
+        /* استایل اسلایدر */
         input[type=range] {
             direction: ltr;
         }
@@ -24,9 +29,11 @@
 </head>
 <body class="bg-gray-50 flex items-center justify-center min-h-screen p-4 font-sans">
 
+    <!-- صفحه لاگین -->
     <div id="loginScreen" class="absolute inset-0 bg-gray-900 bg-opacity-95 flex items-center justify-center p-4 z-40 overflow-y-auto">
         <div class="bg-white p-6 rounded-xl shadow-2xl text-center w-full max-w-sm my-auto">
             <h2 class="text-2xl font-bold text-indigo-600 mb-4">🔒 ورود / تنظیمات</h2>
+
             <div id="pinLoginForm">
                 <p id="pinLoadingStatus" class="text-sm text-gray-500 mb-4">در حال بارگذاری کلید...</p>
                 <input 
@@ -42,10 +49,12 @@
                 </button>
                 <p id="pinError" class="text-red-500 text-sm mt-3 hidden">کد امنیتی اشتباه است.</p>
             </div>
+
             <div class="mt-6 pt-4 border-t border-gray-200 space-y-3">
                 <button id="setupButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2">
                     <span>⚙️</span> تنظیمات Wi-Fi برد
                 </button>
+                
                 <button id="show3dButton" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2">
                     <span>🧊</span> نمایش مدل سه بعدی محصول
                 </button>
@@ -53,10 +62,12 @@
         </div>
     </div>
 
+    <!-- مودال نمایش مدل سه بعدی -->
     <div id="modelModal" class="absolute inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 z-50 hidden">
         <div class="bg-white p-4 rounded-xl shadow-2xl w-full max-w-md relative">
             <button id="closeModelButton" class="absolute top-2 right-2 text-gray-500 hover:text-red-500 text-2xl font-bold z-10 p-2">&times;</button>
             <h3 class="text-xl font-bold text-gray-800 mb-4 text-center">مدل شماتیک گاز هوشمند</h3>
+            
             <model-viewer 
                 src="./SSO.glb"
                 alt="مدل سه بعدی گاز هوشمند"
@@ -65,35 +76,49 @@
                 ar
                 shadow-intensity="1">
             </model-viewer>
+            
             <p class="text-center text-sm text-gray-500 mt-4">برای چرخش مدل انگشت خود را بکشید</p>
         </div>
     </div>
 
+    <!-- مودال تنظیمات وای‌فای -->
     <div id="setupModal" class="absolute inset-0 bg-gray-900 bg-opacity-95 flex items-center justify-center p-4 z-50 hidden">
         <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm">
             <h2 class="text-2xl font-bold text-blue-600 mb-6 text-center">تنظیمات Wi-Fi از طریق بلوتوث</h2>
             <p id="bleStatus" class="text-sm text-gray-600 mb-4 text-center">لطفاً برد ESP32 را در حالت تنظیمات قرار دهید.</p>
+
             <label for="ssidInput" class="block text-sm font-medium text-gray-700 mt-4 mb-1">نام شبکه (SSID)</label>
             <input type="text" id="ssidInput" placeholder="نام وای‌فای" class="w-full border-2 border-gray-300 rounded-lg p-3 outline-none mb-4">
+
             <label for="passwordInput" class="block text-sm font-medium text-gray-700 mb-1">رمز عبور (Password)</label>
             <input type="password" id="passwordInput" placeholder="رمز وای‌فای" class="w-full border-2 border-gray-300 rounded-lg p-3 outline-none mb-6">
+
             <button id="connectButton" disabled class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md disabled:opacity-50">
                 اتصال و ارسال تنظیمات
             </button>
+            
             <button id="backToLogin" class="w-full mt-3 text-gray-600 hover:text-gray-800 py-2 rounded-lg transition duration-150">
                 بازگشت به صفحه ورود
             </button>
         </div>
     </div>
 
+    <!-- صفحه اصلی کنترل -->
     <div id="app" class="w-full max-w-sm p-6 bg-white rounded-xl shadow-2xl text-center flex flex-col items-center hidden">
+        <!-- ساعت زنده ایران -->
+        <div id="iranClock" class="text-sm text-gray-500 mb-3 hidden">--:--:--</div>
+
         <h1 class="text-2xl font-bold text-gray-800 mb-6">سوئیچ هوشمند</h1>
+
         <div id="statusDisplay" class="text-xl font-semibold p-3 w-full rounded-lg mb-6 transition-colors duration-500">
             در حال اتصال...
         </div>
+
         <button id="toggleButton" disabled class="toggle-button text-white font-bold py-3 px-6 rounded-full opacity-50 w-full mb-6">
             ...
         </button>
+
+        <!-- بخش جدید کنترل شدت گاز -->
         <div id="gasControlContainer" class="w-full border-t pt-6 mt-2 hidden">
             <div class="flex justify-between items-center mb-4">
                 <span class="text-gray-700 font-medium">میزان باز بودن گاز:</span>
@@ -112,6 +137,14 @@
                 <span id="gasDegreeLabel">90 درجه</span>
                 <span>0%</span>
             </div>
+
+            <!-- بخش دما (زیر اسلایدر) -->
+            <div class="mt-4 text-left w-full">
+                <div id="tempContainer" class="p-3 bg-gray-50 rounded-lg text-right">
+                    <div class="text-gray-700">دما: <span id="temperatureValue" class="font-bold text-indigo-600">-- °C</span></div>
+                    <div class="text-xs text-gray-400 mt-1">آخرین بروزرسانی: <span id="tempUpdatedAt">--</span></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -123,13 +156,20 @@
         const STATUS_ROW_ID = 1; 
         const SECRETS_TABLE_NAME = 'app_config';
         const SECRETS_ROW_ID = 1;
+        
+        // جدول جدید سروو
         const SERVO_TABLE_NAME = 'servo';
         const SERVO_ROW_ID = 1;
+
+        // جدول جدید دما (اسم جدول در Supabase)
+        const TEMP_TABLE_NAME = 'tempera';
+        const TEMP_ROW_ID = 1;
 
         const app = document.getElementById('app');
         const loginScreen = document.getElementById('loginScreen');
         const setupModal = document.getElementById('setupModal');
         const modelModal = document.getElementById('modelModal'); 
+        
         const pinInput = document.getElementById('pinInput');
         const pinSubmitButton = document.getElementById('pinSubmitButton');
         const pinError = document.getElementById('pinError');
@@ -144,13 +184,21 @@
         const passwordInput = document.getElementById('passwordInput');
         const connectButton = document.getElementById('connectButton');
         const bleStatus = document.getElementById('bleStatus');
+
+        // المان‌های جدید گاز و دما
         const gasControlContainer = document.getElementById('gasControlContainer');
         const gasSlider = document.getElementById('gasSlider');
         const gasPercentageLabel = document.getElementById('gasPercentageLabel');
         const gasDegreeLabel = document.getElementById('gasDegreeLabel');
 
+        // المان‌های ساعت و دما
+        const iranClock = document.getElementById('iranClock');
+        const temperatureValue = document.getElementById('temperatureValue');
+        const tempUpdatedAt = document.getElementById('tempUpdatedAt');
+
         let supabase;
         let secretPin = null;
+        let iranClockInterval = null;
 
         const updateUI = (isActive) => {
             const buttonState = {
@@ -158,39 +206,53 @@
                 false: { text: "روشن کن", classes: 'bg-green-600 hover:bg-green-700' },
                 null: { text: "لطفاً صبر کنید", classes: 'bg-gray-400 opacity-50', disabled: true }
             };
+
             const displayState = {
                 true: { text: "وضعیت: روشن", classes: 'bg-green-100 text-green-700 ring-4 ring-green-300' },
                 false: { text: "وضعیت: خاموش", classes: 'bg-red-100 text-red-700 ring-4 ring-red-300' },
                 null: { text: "در حال اتصال...", classes: 'bg-gray-100 text-gray-500' }
             };
+
             const state = isActive === true ? 'true' : (isActive === false ? 'false' : 'null');
+
             statusDisplay.textContent = displayState[state].text;
             statusDisplay.className = `text-xl font-semibold p-3 w-full rounded-lg mb-6 transition-colors duration-500 ${displayState[state].classes}`;
+            
             toggleButton.textContent = buttonState[state].text;
             toggleButton.className = `toggle-button text-white font-bold py-3 px-6 rounded-full w-full mb-6 ${buttonState[state].classes}`;
             toggleButton.disabled = buttonState[state].disabled || false;
+            
+            // نمایش یا مخفی کردن کنترل گاز بر اساس وضعیت سوئیچ
             if (isActive === true) {
                 gasControlContainer.classList.remove('hidden');
             } else {
                 gasControlContainer.classList.add('hidden');
             }
+
             if (isActive !== null) {
                 toggleButton.dataset.isActive = isActive;
             }
         };
 
+        // تابع آپدیت زاویه سروو در دیتابیس
         async function updateServoAngle(percentage) {
+            // تبدیل درصد به درجه (0-100 -> 0-180)
             const degree = Math.round((percentage * 180) / 100);
+            
+            // آپدیت لیبل‌ها در صفحه
             gasPercentageLabel.textContent = `${percentage}%`;
             gasDegreeLabel.textContent = `${degree} درجه`;
+
             try {
                 const { error } = await supabase
                     .from(SERVO_TABLE_NAME)
                     .update({ ang: degree })
                     .eq('id', SERVO_ROW_ID);
+
                 if (error) throw error;
+                console.log(`Angle updated to: ${degree}°`); 
             } catch (error) {
-                console.error(error);
+                console.error("Error updating servo angle:", error);
             }
         }
 
@@ -200,39 +262,52 @@
                 connectButton.disabled = true;
                 return;
             }
+
             const ssid = ssidInput.value.trim();
             const password = passwordInput.value;
+
             if (ssid.length < 1) {
                 bleStatus.textContent = "لطفاً نام شبکه (SSID) را وارد کنید.";
                 return;
             }
+
             bleStatus.textContent = "🔍 در حال جستجوی برد ESP32...";
             connectButton.disabled = true;
+
             try {
                 const device = await navigator.bluetooth.requestDevice({
                     filters: [{ namePrefix: ESP_NAME }],
                     optionalServices: [WIFI_PROV_SERVICE_UUID]
                 });
+                
                 bleStatus.textContent = `✅ دستگاه ${device.name} پیدا شد. در حال اتصال...`;
+
                 const server = await device.gatt.connect();
                 bleStatus.textContent = "🔗 متصل شد. در حال جستجوی سرویس...";
+
                 const service = await server.getPrimaryService(WIFI_PROV_SERVICE_UUID);
                 bleStatus.textContent = "📡 سرویس Wi-Fi Provisioning پیدا شد. در حال ارسال داده...";
+
                 const ssidCharacteristic = await service.getCharacteristic(SSID_CHARACTERISTIC_UUID);
                 const passCharacteristic = await service.getCharacteristic(PASS_CHARACTERISTIC_UUID);
+
                 await ssidCharacteristic.writeValue(new TextEncoder().encode(ssid));
                 bleStatus.textContent = `🔑 SSID (${ssid}) ارسال شد. در حال ارسال رمز...`;
+                
                 await passCharacteristic.writeValue(new TextEncoder().encode(password));
-                bleStatus.textContent = "✅ رمز عبور با موفقیت ارسال شد!";
+                bleStatus.textContent = "✅ رمز عبور با موفقیت ارسال شد! ESP32 در حال اتصال به وای‌فای است.";
+
                 server.disconnect();
+
                 setTimeout(() => {
                     setupModal.classList.add('hidden');
                     loginScreen.classList.remove('hidden');
                     bleStatus.textContent = "لطفاً برد ESP32 را در حالت تنظیمات قرار دهید.";
                     connectButton.disabled = false;
                 }, 2000);
+
             } catch (error) {
-                console.error(error);
+                console.error("Bluetooth Error:", error);
                 if (error && error.message && error.message.includes("cancelled")) {
                       bleStatus.textContent = "عملیات توسط کاربر لغو شد.";
                 } else {
@@ -250,17 +325,21 @@
                     .select('pin_code')
                     .eq('id', SECRETS_ROW_ID)
                     .single();
-                if (error || !data || !data.pin_code) throw new Error("PIN error");
+
+                if (error || !data || !data.pin_code) throw new Error("PIN not found or RLS error.");
+
                 secretPin = data.pin_code;
                 pinLoadingStatus.textContent = "کد امنیتی را وارد کنید:";
+
                 pinInput.disabled = false;
                 pinInput.classList.remove('opacity-50');
                 pinSubmitButton.disabled = false;
                 pinSubmitButton.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md hover:shadow-lg';
+
                 setupButton.disabled = false; 
                 show3dButton.disabled = false;
             } catch (error) {
-                console.error(error);
+                console.error("Error fetching PIN:", error);
                 pinLoadingStatus.textContent = "❌ خطا: کلید امنیتی بارگذاری نشد.";
                 pinSubmitButton.disabled = true;
                 setupButton.disabled = false; 
@@ -270,20 +349,25 @@
 
         async function fetchInitialStatus() {
             updateUI(null);
+
             const { data, error } = await supabase
                 .from(TABLE_NAME)
                 .select('is_active')
                 .eq('id', STATUS_ROW_ID)
                 .maybeSingle();
+
             if (error) {
-                console.error(error);
+                console.error("Error fetching status:", error);
                 statusDisplay.textContent = "❌ خطا در دریافت وضعیت اولیه.";
                 updateUI(null);
                 return;
             }
+
             if (!data) {
+                console.log("Status row not found. Inserting initial status (true).");
                 const { error: insertError } = await supabase.from(TABLE_NAME).insert({ id: STATUS_ROW_ID, is_active: true });
                 if (insertError) {
+                    console.error("Error inserting initial status:", insertError);
                     statusDisplay.textContent = "❌ خطا در ایجاد وضعیت اولیه.";
                     updateUI(null);
                     return;
@@ -292,11 +376,14 @@
             } else {
                 updateUI(data.is_active);
             }
+
+            // دریافت مقدار اولیه سروو
             const { data: servoData } = await supabase
                 .from(SERVO_TABLE_NAME)
                 .select('ang')
                 .eq('id', SERVO_ROW_ID)
                 .maybeSingle();
+            
             if (servoData) {
                 const initialPercent = Math.round((servoData.ang / 180) * 100);
                 gasSlider.value = initialPercent;
@@ -313,93 +400,213 @@
                     table: TABLE_NAME,
                     filter: `id=eq.${STATUS_ROW_ID}` 
                 }, (payload) => {
+                    console.log('Realtime change received:', payload);
                     updateUI(payload.new.is_active);
                 })
                 .subscribe((status) => {
                     if (status !== 'SUBSCRIBED') {
+                        console.error('Realtime subscription failed or had an error:', status);
                         if (status === 'CHANNEL_ERROR') {
-                            statusDisplay.textContent = "⚠️ اخطار: خطای Realtime.";
+                            statusDisplay.textContent = "⚠️ اخطار: خطای Realtime. به‌روزرسانی‌ها با تاخیر انجام می‌شوند.";
                         }
                     }
                 });
         }
 
+        // Realtime listener برای دما
+        function setupTemperatureListener() {
+            supabase.channel('temperature_channel')
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: TEMP_TABLE_NAME,
+                    filter: `id=eq.${TEMP_ROW_ID}`
+                }, (payload) => {
+                    console.log('Temperature realtime payload:', payload);
+                    if (payload && payload.new) {
+                        updateTemperatureUI(payload.new.temperature, payload.new.updated_at);
+                    }
+                })
+                .subscribe((status) => {
+                    if (status !== 'SUBSCRIBED') {
+                        console.warn('Temperature realtime subscription status:', status);
+                    }
+                });
+        }
+
+        function updateTemperatureUI(temp, updated_at) {
+            try {
+                const v = (typeof temp === 'number') ? temp.toFixed(2) : temp;
+                temperatureValue.textContent = `${v} °C`;
+                // نمایش زمان به صورت دقیق همراه با ثانیه (منطقهٔ ایران)
+                const d = new Date(updated_at);
+                const fmt = new Intl.DateTimeFormat('fa-IR', {
+                    timeZone: 'Asia/Tehran',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+                tempUpdatedAt.textContent = fmt.format(d);
+            } catch (err) {
+                console.error('Error formatting temperature UI:', err);
+            }
+        }
+
+        async function fetchTemperature() {
+            try {
+                const { data, error } = await supabase
+                    .from(TEMP_TABLE_NAME)
+                    .select('temperature, updated_at')
+                    .eq('id', TEMP_ROW_ID)
+                    .maybeSingle();
+
+                if (error) {
+                    console.error('Error fetching temperature:', error);
+                    return;
+                }
+                if (data) {
+                    updateTemperatureUI(data.temperature, data.updated_at);
+                } else {
+                    // اگر سطری نیست، مقداری پیش‌فرض نمایش بده
+                    temperatureValue.textContent = `-- °C`;
+                    tempUpdatedAt.textContent = `--`;
+                }
+            } catch (err) {
+                console.error('fetchTemperature error:', err);
+            }
+        }
+
         async function toggleStatus() {
             const currentStatus = toggleButton.dataset.isActive === 'true';
             const newStatus = !currentStatus;
+
             toggleButton.disabled = true;
             toggleButton.textContent = "در حال ذخیره...";
-            statusDisplay.textContent = "در حال ارسال تغییر...";
+            statusDisplay.textContent = "در حال ارسال تغییر به دیتابیس...";
+
             try {
                 const { error } = await supabase
                     .from(TABLE_NAME)
                     .update({ is_active: newStatus })
                     .eq('id', STATUS_ROW_ID);
+
                 if (error) throw error;
+
+                console.log(`Status successfully toggled to: ${newStatus}`);
                 updateUI(newStatus);
+
             } catch (error) {
-                console.error(error);
-                statusDisplay.textContent = "❌ خطا در ذخیره وضعیت.";
+                console.error("Error toggling status:", error);
+                statusDisplay.textContent = "❌ خطا در ذخیره وضعیت. لطفاً دوباره تلاش کنید.";
                 fetchInitialStatus();
+            } finally {
+                toggleButton.disabled = false;
             }
         }
 
         function checkPIN() {
             pinError.classList.add('hidden');
+
             if (pinInput.value === secretPin) { 
                 loginScreen.classList.add('hidden');
                 app.classList.remove('hidden'); 
+
                 fetchInitialStatus();
                 setupRealtimeListener();
+
+                // ساعت زنده ایران
+                startIranClock();
+
+                // دما
+                fetchTemperature();
+                setupTemperatureListener();
             } else {
                 pinError.classList.remove('hidden');
                 pinInput.value = ''; 
             }
         }
-        
+
+        function startIranClock() {
+            // اگر قبلاً اینتروال اجرا شده بود پاکش کن
+            if (iranClockInterval) clearInterval(iranClockInterval);
+
+            function updateClock() {
+                const now = new Date();
+                const fmt = new Intl.DateTimeFormat('fa-IR', {
+                    timeZone: 'Asia/Tehran',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+                iranClock.textContent = fmt.format(now);
+                iranClock.classList.remove('hidden');
+            }
+
+            updateClock();
+            iranClockInterval = setInterval(updateClock, 1000);
+        }
+
         function initializeApp() {
             try {
                 supabase = createClient(supabaseUrl, supabaseAnonKey);
             } catch (error) {
-                console.error(error);
-                pinLoadingStatus.textContent = "❌ خطا.";
+                console.error("Supabase Client Initialization Error:", error);
+                pinLoadingStatus.textContent = "❌ خطای راه‌اندازی اولیه سوپابیس.";
             }
+
             pinSubmitButton.addEventListener('click', checkPIN);
             pinInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') checkPIN();
             });
             toggleButton.addEventListener('click', toggleStatus);
+
+            // رویداد تغییر اسلایدر گاز
             gasSlider.addEventListener('input', (e) => {
                 const val = e.target.value;
                 updateServoAngle(val);
             });
+
             setupButton.addEventListener('click', () => {
                 loginScreen.classList.add('hidden');
                 setupModal.classList.remove('hidden');
                 ssidInput.focus();
             });
+
             backToLogin.addEventListener('click', () => {
                 setupModal.classList.add('hidden');
                 loginScreen.classList.remove('hidden');
             });
+            
             show3dButton.addEventListener('click', () => {
                 modelModal.classList.remove('hidden');
             });
+
             closeModelButton.addEventListener('click', () => {
                 modelModal.classList.add('hidden');
             });
+
             modelModal.addEventListener('click', (e) => {
                 if (e.target === modelModal) {
                     modelModal.classList.add('hidden');
                 }
             });
+            
             connectButton.addEventListener('click', connectAndSendCredentials);
+            
             ssidInput.addEventListener('input', () => {
                 connectButton.disabled = ssidInput.value.trim().length < 1;
             });
+
             fetchSecretPin();
         }
+
         window.onload = initializeApp;
+
     </script>
 </body>
 </html>
